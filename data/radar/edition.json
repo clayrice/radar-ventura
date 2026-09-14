@@ -1,0 +1,67 @@
+{
+  "edition_date": "2026-09-11",
+  "prepared_at": "2026-09-11T12:30:15.124754+00:00",
+  "mode": "editorial_review",
+  "articles": [
+    {
+      "id": "radar-20260911-congresso",
+      "title": "O alerta de um ex-pesquisador da Anthropic chegou ao Congresso americano",
+      "category": "Backstage",
+      "source_name": "Axios",
+      "source_url": "https://www.axios.com/2026/09/11/congress-ai-anthropic-coxon-researcher-democrats",
+      "published_at": "2026-09-11T09:00:07Z",
+      "sectors": [
+        "Other",
+        "Professional services"
+      ],
+      "summary": "Segundo a Axios, o alerta de Jacob Coxon, ex-pesquisador da Anthropic, mobilizou parlamentares americanos. Ele afirmou temer consequências extremas da IA até o fim da década. A declaração expressa uma avaliação de risco, sem demonstrar que esse desfecho acontecerá.\n\nA reportagem descreve propostas de reação, mas ainda pouca coordenação política. A repercussão mostra que uma discussão antes concentrada nos laboratórios passou a disputar espaço na agenda pública.",
+      "brazil_impact": "Para quem toca uma pequena empresa no Brasil, o debate chega pelo WhatsApp da equipe e pelas dúvidas dos clientes. Vale combinar onde a IA pode ajudar e quem confere o resultado: rascunhar uma proposta é diferente de prometer prazo ou preço ao cliente. Uma conversa curta com a equipe, usando exemplos do próprio negócio, pode evitar tanto o medo de experimentar quanto a confiança excessiva na ferramenta."
+    },
+    {
+      "id": "radar-20260911-oracle",
+      "title": "A corrida da IA cresce nas vendas da Oracle e pesa no caixa",
+      "category": "Business",
+      "source_name": "Axios",
+      "source_url": "https://www.axios.com/2026/09/11/oracle-ai-sales-cash",
+      "published_at": "2026-09-11T11:00:10Z",
+      "sectors": [
+        "Other",
+        "Professional services"
+      ],
+      "summary": "A Oracle apresentou crescimento forte nas vendas e na carteira de contratos, segundo a Axios. Ao mesmo tempo, os investimentos elevados mantêm seu fluxo de caixa livre negativo. A expansão ligada à IA aparece, portanto, acompanhada de uma conta relevante para financiar a infraestrutura.\n\nA cobertura chama atenção para a capacidade financeira de sustentar esse avanço. Vender mais e ter dinheiro disponível são dimensões diferentes de um negócio, mesmo quando os anúncios de crescimento ocupam as manchetes.",
+      "brazil_impact": "No orçamento de uma pequena empresa brasileira, a mensalidade da ferramenta é só parte da conta. Se a cobrança for em dólar, considere também a variação do câmbio; some a integração, o treinamento e o tempo gasto revisando respostas. Antes de contratar mais licenças, teste uma rotina e veja se a economia aparece de verdade. Liberar duas horas do dono por semana pode ter valor, desde que não crie três horas de correção depois."
+    },
+    {
+      "id": "radar-20260911-trabalho",
+      "title": "Os cenários de emprego da Anthropic pedem conversa, não uma sentença sobre profissões",
+      "category": "Work",
+      "source_name": "Axios",
+      "source_url": "https://www.axios.com/2026/09/09/ai-economy-jobs-anthropic",
+      "published_at": "2026-09-09T15:28:13Z",
+      "sectors": [
+        "Other",
+        "Professional services",
+        "Education"
+      ],
+      "summary": "Uma análise da Axios sobre a pesquisa econômica da Anthropic apresenta futuros bastante diferentes para o trabalho. O impacto varia conforme a intensidade da adoção de IA, com pressão maior sobre ocupações de escritório nos cenários mais extremos.\n\nSão cenários, e não resultados garantidos. A reportagem registra essa ressalva e observa que as possibilidades estudadas também envolvem uma distribuição desigual dos ganhos. Crescimento econômico e melhora da vida de cada trabalhador não são a mesma medida.",
+      "brazil_impact": "Numa loja, imobiliária ou escritório com equipe enxuta, uma pessoa costuma cuidar de várias funções. Automatizar uma delas não significa que todo o trabalho daquela pessoa desapareceu. Experimente tirar da rotina uma tarefa repetitiva, como preparar a primeira versão de um relatório, e combine como usar o tempo recuperado: acompanhar propostas, atender melhor ou organizar pendências. O resultado precisa fazer sentido para quem trabalha e para quem paga a conta.",
+      "cover_url": "https://graphics.axios.com/hermesv2/2026-09-09-1028-projected-u-s-gdp/fallbacks/2026-09-09-1028-projected-u-s-gdp-fallback.png",
+      "cover_caption": "Cenários de crescimento econômico com diferentes níveis de adoção de IA.",
+      "cover_credit": "Courtenay Brown/Axios. Dados: Anthropic"
+    },
+    {
+      "id": "radar-20260911-seguranca",
+      "title": "O relato de abusos da Anthropic traz a conversa de segurança para perto da operação",
+      "category": "Business",
+      "source_name": "Associated Press",
+      "source_url": "https://apnews.com/article/00266dca90e4f8853f669648998d3bda",
+      "published_at": "2026-09-10T20:50:37Z",
+      "sectors": [
+        "Other",
+        "Professional services"
+      ],
+      "summary": "A Associated Press noticia que a Anthropic afirma ter bloqueado usos de seus modelos ligados a ataques digitais, vigilância e pesquisas com potencial de aplicação em armas biológicas. Os casos foram apresentados pela própria empresa em um relatório sobre uso indevido de IA.\n\nHá uma ressalva importante nessa cobertura: a Anthropic diz ter selecionado episódios excepcionais. Esses relatos não permitem concluir que representem o uso típico da tecnologia, nem medir sozinhos a frequência dos abusos.",
+      "brazil_impact": "Pense num assistente conectado ao WhatsApp comercial, à agenda ou ao cadastro de clientes. Cada acesso amplia o que ele pode fazer em nome da empresa. Comece por rascunhos que alguém confere e deixe alterações de preço, pagamentos e promessas ao cliente sob aprovação humana. Para um pequeno negócio, um erro desses pode virar prejuízo e desgaste com um cliente conhecido. Peça ao fornecedor que mostre como limitar acessos e interromper ações."
+    }
+  ]
+}

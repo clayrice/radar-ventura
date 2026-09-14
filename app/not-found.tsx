@@ -1,0 +1,1 @@
+import Link from 'next/link';export default function NotFound(){return <main id="main" className="prose"><h1>Esta página não está disponível.</h1><p>O endereço pode ter mudado ou o conteúdo pode pertencer a outra conta.</p><Link className="button" href="/">Voltar ao radar</Link></main>}

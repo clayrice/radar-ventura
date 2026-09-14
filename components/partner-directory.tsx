@@ -1,0 +1,6 @@
+"use client";
+import {PartnerCarousel} from './partner-carousel';
+import {label as pt} from '@/lib/labels';
+
+import {useState} from 'react';import Link from 'next/link';import {sectors,type Partner} from '@/lib/types';
+export function PartnerDirectory({partners}:{partners:Partner[]}){const [sector,setSector]=useState('Todos os setores');const shown=partners.filter(p=>sector==='Todos os setores'||p.sectors.includes(sector));return <><div className="filters" aria-label="Filtrar parceiros por setor">{['Todos os setores',...sectors].map(s=><button key={s} onClick={()=>setSector(s)} aria-pressed={sector===s} className={sector===s?'selected':''}>{pt(s)}</button>)}</div><div className="partner-grid">{shown.map(p=><article key={p.id} className="partner-card"><PartnerCarousel items={p.media} name={p.name}/><div className="card-top"><span className="partner-avatar">{p.name[0]}</span><span className="sponsored">Perfil patrocinado{p.id.startsWith('demo')?' · Exemplo':''}</span></div><h3>{p.name}</h3><p>{p.description}</p><div className="tags">{p.capabilities.map(c=><span key={c}>{pt(c)}</span>)}</div><Link className="text-link" href={`/partners/${p.slug}`}>Conhecer o parceiro ↗</Link></article>)}</div>{!shown.length&&<div className="empty"><h3>Ainda não temos parceiros neste setor.</h3><p>Explore outros setores ou volte para conhecer novos parceiros.</p></div>}</>}

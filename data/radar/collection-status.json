@@ -1,0 +1,192 @@
+{
+  "checked_at": "2026-09-11T12:27:52.675Z",
+  "item_count": 105,
+  "results": [
+    {
+      "id": "human-in-the-loop",
+      "name": "Human in the Loop · Andreas Horn",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "aidrops",
+      "name": "AiDrops",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "ai-breakfast",
+      "name": "AI Breakfast",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "rundown",
+      "name": "The Rundown AI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "neuron",
+      "name": "The Neuron",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "tldr",
+      "name": "TLDR AI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "superhuman",
+      "name": "Superhuman AI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "bens-bites",
+      "name": "Ben’s Bites",
+      "status": "connected",
+      "recent_items": 3
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "status": "connected",
+      "recent_items": 19
+    },
+    {
+      "id": "google-ai",
+      "name": "Google AI",
+      "status": "connected",
+      "recent_items": 3
+    },
+    {
+      "id": "deepmind",
+      "name": "Google DeepMind",
+      "status": "connected",
+      "recent_items": 1
+    },
+    {
+      "id": "meta",
+      "name": "Meta AI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "microsoft",
+      "name": "Microsoft AI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "status": "connected",
+      "recent_items": 3
+    },
+    {
+      "id": "nvidia",
+      "name": "NVIDIA",
+      "status": "connected",
+      "recent_items": 5
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "venturebeat",
+      "name": "VentureBeat AI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "techcrunch",
+      "name": "TechCrunch AI",
+      "status": "connected",
+      "recent_items": 19
+    },
+    {
+      "id": "the-batch",
+      "name": "The Batch · DeepLearning.AI",
+      "status": "pending",
+      "reason": "Conector pendente"
+    },
+    {
+      "id": "ars-technica",
+      "name": "Ars Technica",
+      "status": "connected",
+      "recent_items": 20
+    },
+    {
+      "id": "wired",
+      "name": "WIRED",
+      "status": "connected",
+      "recent_items": 10
+    },
+    {
+      "id": "mit-review",
+      "name": "MIT Technology Review",
+      "status": "connected",
+      "recent_items": 10
+    },
+    {
+      "id": "import-ai",
+      "name": "Import AI · Jack Clark",
+      "status": "connected",
+      "recent_items": 1
+    },
+    {
+      "id": "one-useful-thing",
+      "name": "One Useful Thing · Ethan Mollick",
+      "status": "connected",
+      "recent_items": 0
+    },
+    {
+      "id": "latent-space",
+      "name": "Latent Space",
+      "status": "connected",
+      "recent_items": 5
+    },
+    {
+      "id": "interconnects",
+      "name": "Interconnects · Nathan Lambert",
+      "status": "connected",
+      "recent_items": 3
+    },
+    {
+      "id": "ahead-of-ai",
+      "name": "Ahead of AI · Sebastian Raschka",
+      "status": "connected",
+      "recent_items": 1
+    },
+    {
+      "id": "last-week-in-ai",
+      "name": "Last Week in AI",
+      "status": "connected",
+      "recent_items": 2
+    },
+    {
+      "id": "ai-snake-oil",
+      "name": "AI Snake Oil",
+      "status": "connected",
+      "recent_items": 0
+    }
+  ]
+}

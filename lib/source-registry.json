@@ -1,0 +1,411 @@
+[
+  {
+    "id": "human-in-the-loop",
+    "name": "Human in the Loop · Andreas Horn",
+    "kind": "discovery",
+    "url": "https://www.humanintheloop.online/",
+    "feed_url": "https://www.humanintheloop.online/feed",
+    "verified": false,
+    "enabled": false,
+    "priority": "A",
+    "note": "Pendente: HTTP 404"
+  },
+  {
+    "id": "aidrops",
+    "name": "AiDrops",
+    "kind": "discovery",
+    "url": "https://www.aidrop.news/",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "A",
+    "note": "Sem RSS declarado; conector pendente"
+  },
+  {
+    "id": "ai-breakfast",
+    "name": "AI Breakfast",
+    "kind": "discovery",
+    "url": "https://aibreakfast.beehiiv.com/",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "A",
+    "note": "Sem RSS declarado; conector pendente"
+  },
+  {
+    "id": "rundown",
+    "name": "The Rundown AI",
+    "kind": "discovery",
+    "url": "https://www.therundown.ai/",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "A",
+    "note": "Sem RSS declarado; conector pendente"
+  },
+  {
+    "id": "neuron",
+    "name": "The Neuron",
+    "kind": "discovery",
+    "url": "https://www.theneuron.ai/",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Pendente: HTTP 403"
+  },
+  {
+    "id": "tldr",
+    "name": "TLDR AI",
+    "kind": "discovery",
+    "url": "https://tldr.tech/ai",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Sem RSS declarado; conector pendente"
+  },
+  {
+    "id": "bens-bites",
+    "name": "Ben’s Bites",
+    "kind": "discovery",
+    "url": "https://www.bensbites.com/",
+    "feed_url": "https://www.bensbites.com/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:08.448Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "www.bensbites.com"
+    ]
+  },
+  {
+    "id": "superhuman",
+    "name": "Superhuman AI",
+    "kind": "discovery",
+    "url": "https://www.superhuman.ai/",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Sem RSS declarado; conector pendente"
+  },
+  {
+    "id": "openai",
+    "name": "OpenAI",
+    "kind": "primary",
+    "url": "https://openai.com/news/",
+    "feed_url": "https://openai.com/news/rss.xml",
+    "verified": true,
+    "enabled": true,
+    "priority": "A",
+    "checked_at": "2026-09-10T02:54:08.930Z",
+    "note": "RSS validado (1183 itens)",
+    "article_hosts": [
+      "openai.com"
+    ]
+  },
+  {
+    "id": "anthropic",
+    "name": "Anthropic",
+    "kind": "primary",
+    "url": "https://www.anthropic.com/news",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "A",
+    "note": "Sem RSS declarado; conector pendente"
+  },
+  {
+    "id": "google-ai",
+    "name": "Google AI",
+    "kind": "primary",
+    "url": "https://blog.google/technology/ai/",
+    "feed_url": "https://blog.google/innovation-and-ai/technology/ai/rss/",
+    "verified": true,
+    "enabled": true,
+    "priority": "A",
+    "checked_at": "2026-09-10T02:54:10.484Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "blog.google"
+    ]
+  },
+  {
+    "id": "deepmind",
+    "name": "Google DeepMind",
+    "kind": "primary",
+    "url": "https://deepmind.google/blog/",
+    "feed_url": "https://deepmind.google/blog/rss.xml",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:10.550Z",
+    "note": "RSS validado (100 itens)",
+    "article_hosts": [
+      "deepmind.google"
+    ]
+  },
+  {
+    "id": "meta",
+    "name": "Meta AI",
+    "kind": "primary",
+    "url": "https://ai.meta.com/blog/",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Sem RSS declarado; conector pendente"
+  },
+  {
+    "id": "microsoft",
+    "name": "Microsoft AI",
+    "kind": "primary",
+    "url": "https://blogs.microsoft.com/ai/",
+    "feed_url": "https://blogs.microsoft.com/ai/feed/",
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Pendente: HTTP 410"
+  },
+  {
+    "id": "nvidia",
+    "name": "NVIDIA",
+    "kind": "primary",
+    "url": "https://blogs.nvidia.com/",
+    "feed_url": "https://blogs.nvidia.com/feed/",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:10.898Z",
+    "note": "RSS validado (18 itens)",
+    "article_hosts": [
+      "blogs.nvidia.com"
+    ]
+  },
+  {
+    "id": "mistral",
+    "name": "Mistral AI",
+    "kind": "primary",
+    "url": "https://mistral.ai/news",
+    "feed_url": "https://mistral.ai/news/rss",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:12.696Z",
+    "note": "RSS validado (84 itens)",
+    "article_hosts": [
+      "mistral.ai"
+    ]
+  },
+  {
+    "id": "xai",
+    "name": "xAI",
+    "kind": "primary",
+    "url": "https://x.ai/news",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Pendente: HTTP 403"
+  },
+  {
+    "id": "perplexity",
+    "name": "Perplexity",
+    "kind": "primary",
+    "url": "https://www.perplexity.ai/hub",
+    "feed_url": null,
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Pendente: HTTP 403"
+  },
+  {
+    "id": "techcrunch",
+    "name": "TechCrunch AI",
+    "kind": "press",
+    "url": "https://techcrunch.com/category/artificial-intelligence/",
+    "feed_url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:12.910Z",
+    "note": "RSS validado (19 itens)",
+    "article_hosts": [
+      "techcrunch.com"
+    ]
+  },
+  {
+    "id": "venturebeat",
+    "name": "VentureBeat AI",
+    "kind": "press",
+    "url": "https://venturebeat.com/category/ai/",
+    "feed_url": "https://venturebeat.com/category/ai/feed/",
+    "verified": false,
+    "enabled": false,
+    "priority": "B",
+    "note": "Pendente: HTTP 429"
+  },
+  {
+    "id": "mit-review",
+    "name": "MIT Technology Review",
+    "kind": "press",
+    "url": "https://www.technologyreview.com/topic/artificial-intelligence/",
+    "feed_url": "https://www.technologyreview.com/feed/",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:13.092Z",
+    "note": "RSS validado (10 itens)",
+    "article_hosts": [
+      "www.technologyreview.com"
+    ]
+  },
+  {
+    "id": "ars-technica",
+    "name": "Ars Technica",
+    "kind": "press",
+    "url": "https://arstechnica.com/",
+    "feed_url": "https://feeds.arstechnica.com/arstechnica/index",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:14.152Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "arstechnica.com"
+    ]
+  },
+  {
+    "id": "wired",
+    "name": "WIRED",
+    "kind": "press",
+    "url": "https://www.wired.com/tag/artificial-intelligence/",
+    "feed_url": "https://www.wired.com/feed/tag/ai/latest/rss",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:13.125Z",
+    "note": "RSS validado (10 itens)",
+    "article_hosts": [
+      "www.wired.com"
+    ]
+  },
+  {
+    "id": "the-batch",
+    "name": "The Batch · DeepLearning.AI",
+    "kind": "analysis",
+    "url": "https://www.deeplearning.ai/the-batch/",
+    "feed_url": "https://www.deeplearning.ai/the-batch/feed/",
+    "verified": false,
+    "enabled": false,
+    "priority": "A",
+    "note": "Pendente: HTTP 404"
+  },
+  {
+    "id": "one-useful-thing",
+    "name": "One Useful Thing · Ethan Mollick",
+    "kind": "analysis",
+    "url": "https://www.oneusefulthing.org/",
+    "feed_url": "https://www.oneusefulthing.org/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:14.982Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "www.oneusefulthing.org"
+    ]
+  },
+  {
+    "id": "import-ai",
+    "name": "Import AI · Jack Clark",
+    "kind": "analysis",
+    "url": "https://importai.substack.com/",
+    "feed_url": "https://importai.substack.com/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:14.393Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "importai.substack.com"
+    ]
+  },
+  {
+    "id": "latent-space",
+    "name": "Latent Space",
+    "kind": "analysis",
+    "url": "https://www.latent.space/",
+    "feed_url": "https://www.latent.space/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:14.784Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "www.latent.space"
+    ]
+  },
+  {
+    "id": "interconnects",
+    "name": "Interconnects · Nathan Lambert",
+    "kind": "analysis",
+    "url": "https://www.interconnects.ai/",
+    "feed_url": "https://www.interconnects.ai/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:14.810Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "www.interconnects.ai"
+    ]
+  },
+  {
+    "id": "ahead-of-ai",
+    "name": "Ahead of AI · Sebastian Raschka",
+    "kind": "analysis",
+    "url": "https://magazine.sebastianraschka.com/",
+    "feed_url": "https://magazine.sebastianraschka.com/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:16.522Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "magazine.sebastianraschka.com"
+    ]
+  },
+  {
+    "id": "last-week-in-ai",
+    "name": "Last Week in AI",
+    "kind": "analysis",
+    "url": "https://lastweekin.ai/",
+    "feed_url": "https://lastweekin.ai/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:15.234Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "lastweekin.ai"
+    ]
+  },
+  {
+    "id": "ai-snake-oil",
+    "name": "AI Snake Oil",
+    "kind": "analysis",
+    "url": "https://www.aisnakeoil.com/",
+    "feed_url": "https://www.normaltech.ai/feed",
+    "verified": true,
+    "enabled": true,
+    "priority": "B",
+    "checked_at": "2026-09-10T02:54:17.995Z",
+    "note": "RSS validado (20 itens)",
+    "article_hosts": [
+      "www.normaltech.ai"
+    ]
+  }
+]

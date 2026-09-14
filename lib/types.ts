@@ -1,0 +1,8 @@
+export type Article = { cover_url?:string|null; cover_caption?:string|null; cover_credit?:string|null; id:string; title:string; summary:string; brazil_impact?:string; source_name:string; source_url:string; published_at:string; category:string; sectors:string[]; human_angle?:string; perspective_attribution?:string; editorial_score?:number; };
+export type Partner = { owner_id?:string; media?:import('./partner-media').PartnerMedia[]; id:string; slug:string; name:string; description:string; sectors:string[]; capabilities:string[]; website:string; email:string|null; phone:string|null; linkedin:string|null; instagram:string|null; placement:'directory'|'newsletter'; plan:'catalog'|'connections'|'strategic'; active:boolean; };
+export type Profile = { user_id:string; company:string; sector:string; size:string; goals:string; objective?:string|null; interests?:string[]; business_model?:string|null; ai_level?:string|null; email_opt_in:boolean; };
+export type EditionContent = { headline:string; overview:{article_id:string; takeaway:string}[]; relevant:{article_id:string; why:string}[]; actions:{title:string; detail:string; effort:string; capability:string}[]; };
+export type Edition = {id:string; week_start:string; status:string; sent_at:string|null; content:EditionContent|null; articles:Article[]; partners:Partner[];};
+export const sectors = ['Real estate','Construction','Retail','Professional services','Education','Hospitality','Other'] as const;
+export const categories = ['Business','Work','Backstage','Big launches'] as const;
+export const capabilities = ['automation','marketing','sales','customer-support','analytics','training'] as const;

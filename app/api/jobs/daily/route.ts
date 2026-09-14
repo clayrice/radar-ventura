@@ -1,0 +1,3 @@
+import {timingSafeEqual} from 'node:crypto';import {runDaily} from '@/lib/jobs';
+export const runtime='nodejs';export const maxDuration=300;export const dynamic='force-dynamic';
+export async function GET(req:Request){const secret=process.env.CRON_SECRET;if(!secret||secret.length<32)return Response.json({error:'Job unavailable'},{status:503});const supplied=req.headers.get('authorization')||'';const expected=`Bearer ${secret}`;if(Buffer.byteLength(supplied)!==Buffer.byteLength(expected)||!timingSafeEqual(Buffer.from(supplied),Buffer.from(expected)))return Response.json({error:'Unauthorized'},{status:401});try{return Response.json(await runDaily());}catch{return Response.json({error:'Job failed; inspect private job_runs'},{status:500});}}
