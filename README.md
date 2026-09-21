@@ -4,7 +4,7 @@ MVP em Next.js para Vercel, com Supabase, OpenAI, Resend e integração Asaas pr
 
 ## Estado da entrega
 
-- Prévia local navegável, com dados de demonstração claramente identificados.
+- Aplicação publicada em https://radar-ventura.vercel.app/ a partir de `clayrice/radar-ventura`.
 - Marca oficial de ventura-ai.com no cabeçalho e rodapé. Paleta: índigo `#524FF5`, lima `#DBFF4F`, fundo `#F7F6EF`, texto `#15142F`. Fontes Space Grotesk, Instrument Serif e JetBrains Mono.
 - Radar público com busca, categorias e links de origem.
 - Login por email, perfil empresarial e arquivo privado de edições.
@@ -12,7 +12,8 @@ MVP em Next.js para Vercel, com Supabase, OpenAI, Resend e integração Asaas pr
 - Plano de Rota: questionário, três projetos, fases, critério de sucesso e parceiros Estratégico compatíveis.
 - Esquema SQL com isolamento por usuário, credenciais apenas no servidor e cotas de geração.
 - Asaas: checkout hospedado, pedidos persistentes, recepção autenticada de webhooks, confirmação financeira e ativação transacional. Cobrança desativada por padrão.
-- Nenhum serviço externo foi provisionado; nenhum email ou cobrança foi enviado. As integrações reais ainda exigem credenciais e validação em sandbox.
+- Supabase conectado para autenticação por email; URL do site e redirecionamento configurados. O fluxo completo ainda depende de um teste com uma caixa de email real.
+- A edição pública de 21/09 é editorial e identificada. O job automático, o envio semanal, o Google OAuth e a cobrança ainda aguardam credenciais e validação.
 
 ## Ofertas de lançamento
 
@@ -131,9 +132,7 @@ Antes de habilitar vendas reais, valide no sandbox:
 
 ## Vercel
 
-Importe o código como projeto Next.js, com diretório raiz `.` (raiz do repositório `radar-ventura`), e configure as variáveis do exemplo. Execute as migrações antes de desativar a demonstração. Cadastre o domínio de produção no Supabase e no remetente do Resend. Confirme se o plano Vercel escolhido permite a duração de 300 segundos configurada para o job; ajuste lote e agendamento conforme o plano contratado.
-
-Não houve deploy nesta sessão porque as contas e credenciais não estavam conectadas.
+O projeto Next.js está publicado a partir da raiz do repositório `radar-ventura`. Em produção, `DEMO_MODE=false`, `EDITORIAL_PREVIEW=true`, `APP_URL=https://radar-ventura.vercel.app` e as variáveis públicas do Supabase estão configuradas. Não há chave de serviço, OpenAI, Resend ou Asaas na Vercel; o job retorna indisponível até receber `CRON_SECRET`. Confirme se o plano Vercel permite a duração de 300 segundos do job antes de ativá-lo.
 
 ## Referências de implementação
 
@@ -191,19 +190,16 @@ Validação: testes de limites/formatos/ordenação e de isolamento SQL entre do
 
 `npm run radar:collect` consulta os feeds habilitados e grava `data/radar/collection.json`, com horário, status por fonte e candidatos dos últimos sete dias. A coleta de 11/09 retornou 105 itens de 17 feeds. Coletar não publica automaticamente. Os conectores pendentes continuam pendentes.
 
-`data/radar/edition.json` contém a edição editorial revisada de 11/09, com quatro matérias reais consultadas na web (Axios e AP), datas originais, links e quatro parágrafos por texto. Ela substitui as pautas ilustrativas da homepage enquanto o restante da conta está em demonstração. Não é apresentada como atualização contínua. Os parágrafos interpretativos são identificados como leitura da Ventura. A geração automática foi ajustada para três ou quatro parágrafos; textos sem material suficiente devem ser rejeitados.
+`data/radar/edition.json` contém a edição editorial revisada de 21/09, com quatro matérias reais consultadas na web (Axios e AP), datas e links de origem e três parágrafos de notícia por texto. A reflexão para o empresário brasileiro fica separada em “E a gente com isso?”. A edição é uma publicação manual, identificada pela data; não representa atualização automática. A geração automática exige três ou quatro parágrafos e rejeita textos sem material suficiente.
 
-As contas externas ainda precisam ser criadas pelo titular:
-1. Supabase: https://supabase.com/dashboard — criar projeto dedicado `ventura-radar`; fornecer somente o link do projeto para a próxima etapa. Aplicar as migrações e o seed antes de habilitar a aplicação.
-2. OpenAI API: https://platform.openai.com/ — criar projeto próprio e chave para o servidor. Guardar a chave diretamente em `.env.local`, no campo `OPENAI_API_KEY`, sem enviar pelo chat. Orientação oficial: https://developers.openai.com/api/docs/quickstart
-3. Vercel: https://vercel.com/signup — criar a conta, depois publicar o projeto com as mesmas variáveis de ambiente e configurar o domínio. Conferir o plano adequado ao uso comercial antes da publicação.
+Supabase e Vercel já têm projetos dedicados. Para ativar o piloto ainda faltam: validar um login por email; configurar a chave de serviço do Supabase e um segredo do job apenas no servidor; criar um projeto OpenAI API com limite de gasto e testar uma chamada curta. Resend precisa de domínio remetente e teste de entrega para a edição semanal. Google OAuth e Asaas exigem suas respectivas contas e testes separados. Nunca versionar nem enviar chaves pelo chat.
 
-`npm run connections:check` informa somente variáveis ausentes, sem exibir segredos. Presença de variável não comprova uma conexão. Depois de configurar: testar banco e RLS, fazer uma chamada curta ao modelo, testar o job autenticado, verificar uma notícia publicada e somente então desativar a demonstração. Resend é necessário para as edições por email; o login Google exige sua configuração própria. Nenhuma dessas conexões foi ativada pela coleta RSS.
+`npm run connections:check` informa somente variáveis ausentes, sem exibir segredos. Presença de variável não comprova uma conexão. Depois de configurar: testar banco e RLS, fazer uma chamada curta ao modelo, testar o job autenticado, verificar uma notícia publicada e só então mudar `EDITORIAL_PREVIEW` para `false`.
 
-A seção “E a gente com isso?” usa o campo `brazil_impact`, separado da reportagem e identificado como Leitura Ventura. A edição local tem uma reflexão específica por pauta, voltada ao empreendedor brasileiro. A geração automática exige esse campo para publicar. Aplique também `008_brazil_impact.sql` no Supabase; a integração permanece pendente da criação das contas.
+A seção “E a gente com isso?” usa o campo `brazil_impact`, separado da reportagem e identificado como Leitura Ventura. A edição local tem uma reflexão específica por pauta, voltada ao empreendedor brasileiro. A geração automática exige esse campo para publicar.
 
 ### Imagens de capa
 
 `009_article_covers.sql` acrescenta URL, legenda e crédito. A capa e a legenda levam à matéria original. O job reconhece anexos de imagem e `media:content` do RSS; não inventa autoria nem usa imagens geradas. Campos ausentes continuam vazios. Imagens externas que falham são ocultadas sem deixar um ícone quebrado.
 
-Na edição de 11/09, foi possível identificar o gráfico original da Axios para a matéria sobre trabalho. As capas dos artigos sobre Congresso, Oracle e segurança continuam pendentes: as páginas devolveram HTTP 403 e a verificação pelo navegador foi bloqueada por uma checagem de política indisponível. A presença de legenda/crédito não substitui a licença de reutilização da imagem.
+Na edição de 21/09, duas capas apontam para imagens das reportagens da Axios, com legenda e crédito. As matérias da AP seguem sem capa até haver autorização de uso de suas fotos. Legenda e crédito não substituem licença de reutilização da imagem; verificar também as condições das imagens da Axios antes de um lançamento comercial.

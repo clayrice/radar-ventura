@@ -1,67 +1,57 @@
 {
-  "edition_date": "2026-09-11",
-  "prepared_at": "2026-09-11T12:30:15.124754+00:00",
+  "edition_date": "2026-09-21",
+  "prepared_at": "2026-09-21T16:50:00Z",
   "mode": "editorial_review",
   "articles": [
     {
-      "id": "radar-20260911-congresso",
-      "title": "O alerta de um ex-pesquisador da Anthropic chegou ao Congresso americano",
+      "id": "radar-20260921-processo-pausa",
+      "title": "Os gigantes da IA querem desacelerar. Assinantes foram à Justiça",
       "category": "Backstage",
-      "source_name": "Axios",
-      "source_url": "https://www.axios.com/2026/09/11/congress-ai-anthropic-coxon-researcher-democrats",
-      "published_at": "2026-09-11T09:00:07Z",
-      "sectors": [
-        "Other",
-        "Professional services"
-      ],
-      "summary": "Segundo a Axios, o alerta de Jacob Coxon, ex-pesquisador da Anthropic, mobilizou parlamentares americanos. Ele afirmou temer consequências extremas da IA até o fim da década. A declaração expressa uma avaliação de risco, sem demonstrar que esse desfecho acontecerá.\n\nA reportagem descreve propostas de reação, mas ainda pouca coordenação política. A repercussão mostra que uma discussão antes concentrada nos laboratórios passou a disputar espaço na agenda pública.",
-      "brazil_impact": "Para quem toca uma pequena empresa no Brasil, o debate chega pelo WhatsApp da equipe e pelas dúvidas dos clientes. Vale combinar onde a IA pode ajudar e quem confere o resultado: rascunhar uma proposta é diferente de prometer prazo ou preço ao cliente. Uma conversa curta com a equipe, usando exemplos do próprio negócio, pode evitar tanto o medo de experimentar quanto a confiança excessiva na ferramenta."
+      "source_name": "Associated Press",
+      "source_url": "https://apnews.com/article/antitrust-lawsuit-ai-slowdown-anthropic-openai-spacexai-google-960af4308161eaf4ed13c383b0ce1c1b",
+      "published_at": "2026-09-19T16:39:00Z",
+      "sectors": ["Other", "Professional services"],
+      "summary": "Quatro assinantes de serviços de IA apresentaram uma ação nos Estados Unidos contra Anthropic, OpenAI, SpaceXAI e Google. Eles alegam que as empresas combinaram desacelerar o desenvolvimento de seus modelos e, assim, reduzir o valor entregue a quem paga por esses produtos. É uma acusação dos autores do processo, ainda sem decisão judicial.\n\nSegundo a Associated Press, a ação se apoia em manifestações públicas de dirigentes das quatro empresas depois de um ensaio de Dario Amodei, da Anthropic, propondo mais coordenação para dar tempo às medidas de segurança. Os autores dizem que a conversa cruzou a linha entre debater riscos e restringir a concorrência.\n\nA própria reportagem registra uma distinção importante: os assinantes não contestam a decisão de cada empresa, por conta própria, de avançar mais devagar. A discussão é se rivais chegaram a um acordo entre si. Procuradas pela AP, as empresas não haviam respondido até a publicação da matéria.",
+      "brazil_impact": "Para uma empresa brasileira que usa mais de um assistente de IA, o processo não altera as assinaturas hoje. Ele lembra, porém, que decisões tomadas por poucas plataformas podem mudar o ritmo das ferramentas de que o negócio depende. Vale manter os dados e os processos organizados de modo que a equipe consiga trocar de fornecedor quando necessário. É uma precaução simples, especialmente antes de colocar atendimento, vendas ou documentos importantes em uma única plataforma."
     },
     {
-      "id": "radar-20260911-oracle",
-      "title": "A corrida da IA cresce nas vendas da Oracle e pesa no caixa",
-      "category": "Business",
-      "source_name": "Axios",
-      "source_url": "https://www.axios.com/2026/09/11/oracle-ai-sales-cash",
-      "published_at": "2026-09-11T11:00:10Z",
-      "sectors": [
-        "Other",
-        "Professional services"
-      ],
-      "summary": "A Oracle apresentou crescimento forte nas vendas e na carteira de contratos, segundo a Axios. Ao mesmo tempo, os investimentos elevados mantêm seu fluxo de caixa livre negativo. A expansão ligada à IA aparece, portanto, acompanhada de uma conta relevante para financiar a infraestrutura.\n\nA cobertura chama atenção para a capacidade financeira de sustentar esse avanço. Vender mais e ter dinheiro disponível são dimensões diferentes de um negócio, mesmo quando os anúncios de crescimento ocupam as manchetes.",
-      "brazil_impact": "No orçamento de uma pequena empresa brasileira, a mensalidade da ferramenta é só parte da conta. Se a cobrança for em dólar, considere também a variação do câmbio; some a integração, o treinamento e o tempo gasto revisando respostas. Antes de contratar mais licenças, teste uma rotina e veja se a economia aparece de verdade. Liberar duas horas do dono por semana pode ter valor, desde que não crie três horas de correção depois."
-    },
-    {
-      "id": "radar-20260911-trabalho",
-      "title": "Os cenários de emprego da Anthropic pedem conversa, não uma sentença sobre profissões",
+      "id": "radar-20260921-conversa-equipe",
+      "title": "Se a própria indústria teme a IA, o que o chefe diz à equipe?",
       "category": "Work",
       "source_name": "Axios",
-      "source_url": "https://www.axios.com/2026/09/09/ai-economy-jobs-anthropic",
-      "published_at": "2026-09-09T15:28:13Z",
-      "sectors": [
-        "Other",
-        "Professional services",
-        "Education"
-      ],
-      "summary": "Uma análise da Axios sobre a pesquisa econômica da Anthropic apresenta futuros bastante diferentes para o trabalho. O impacto varia conforme a intensidade da adoção de IA, com pressão maior sobre ocupações de escritório nos cenários mais extremos.\n\nSão cenários, e não resultados garantidos. A reportagem registra essa ressalva e observa que as possibilidades estudadas também envolvem uma distribuição desigual dos ganhos. Crescimento econômico e melhora da vida de cada trabalhador não são a mesma medida.",
-      "brazil_impact": "Numa loja, imobiliária ou escritório com equipe enxuta, uma pessoa costuma cuidar de várias funções. Automatizar uma delas não significa que todo o trabalho daquela pessoa desapareceu. Experimente tirar da rotina uma tarefa repetitiva, como preparar a primeira versão de um relatório, e combine como usar o tempo recuperado: acompanhar propostas, atender melhor ou organizar pendências. O resultado precisa fazer sentido para quem trabalha e para quem paga a conta.",
-      "cover_url": "https://graphics.axios.com/hermesv2/2026-09-09-1028-projected-u-s-gdp/fallbacks/2026-09-09-1028-projected-u-s-gdp-fallback.png",
-      "cover_caption": "Cenários de crescimento econômico com diferentes níveis de adoção de IA.",
-      "cover_credit": "Courtenay Brown/Axios. Dados: Anthropic"
+      "source_url": "https://www.axios.com/2026/09/21/ceo-ai-fears-employee-conversations",
+      "published_at": "2026-09-21T09:30:05Z",
+      "sectors": ["Other", "Professional services", "Education"],
+      "summary": "Em uma coluna da Axios, seu cofundador Jim VandeHei levanta uma pergunta que pode estar circulando nas equipes: por que a empresa incentiva o uso de IA enquanto alguns criadores da tecnologia fazem alertas tão graves sobre seus riscos? Para ele, o silêncio da liderança deixa espaço para boatos e ansiedade.\n\nVandeHei descreve a posição adotada na própria Axios. A empresa usa IA em parte do trabalho, mas diz exigir supervisão humana, proteger a privacidade dos leitores e evitar usos que coloquem sua reputação em risco. Ele também reconhece que trabalhadores podem temer pela utilidade de suas habilidades e pelo futuro de seus empregos.\n\nUm leitor executivo, conta a coluna, argumentou que líderes deveriam evitar registrar opiniões controversas porque mensagens internas podem vazar. VandeHei responde que a comunicação precisa ser clara o bastante para continuar defensável fora da empresa. É a visão dele sobre como liderar essa conversa, apresentada como opinião, sem prometer respostas fáceis para os receios da equipe.",
+      "brazil_impact": "Numa empresa pequena, a equipe percebe rápido quando uma ferramenta aparece sem explicação. O dono pode começar com uma conversa objetiva: qual tarefa a IA vai ajudar a fazer, quem confere o resultado e quais dados não devem ser colocados nela. Pergunte também o que as pessoas temem perder ou aprender. Essa conversa não exige uma política extensa; exige que a liderança diga o que sabe, o que ainda está testando e como vai ouvir quem faz o trabalho todos os dias.",
+      "cover_url": "https://images.axios.com/nAjRG5sBQ1SKF7ySDNVurDDSUlM%3D/0x0%3A1920x1080/1920x1080/2026/09/15/1789501980116.jpeg?w=3840",
+      "cover_caption": "Ilustração da reportagem sobre a conversa entre líderes e equipes a respeito da IA.",
+      "cover_credit": "Sarah Grillo/Axios; imagem de banco: Getty Images"
     },
     {
-      "id": "radar-20260911-seguranca",
-      "title": "O relato de abusos da Anthropic traz a conversa de segurança para perto da operação",
+      "id": "radar-20260921-financas-ia",
+      "title": "O dinheiro da corrida da IA circula entre os mesmos gigantes",
+      "category": "Business",
+      "source_name": "Axios",
+      "source_url": "https://www.axios.com/2026/09/21/ai-finance-credit-circular",
+      "published_at": "2026-09-21T11:20:10Z",
+      "sectors": ["Other", "Professional services"],
+      "summary": "Uma análise da Sona Asset Management, apresentada pela Axios, mapeou as ligações financeiras entre 255 empresas envolvidas na expansão da IA. O desenho inclui plataformas de nuvem, fabricantes de chips, operadoras de centros de dados e laboratórios como OpenAI e Anthropic. Parte do dinheiro volta a circular entre os mesmos participantes, que investem, compram e vendem uns aos outros.\n\nA concentração aparece nos números citados pela reportagem. A CoreWeave recebe cerca de dois terços de sua receita da Microsoft; a Applied Digital depende fortemente da Oracle e da CoreWeave. Quando uma empresa grande muda seus planos, fornecedores menores podem sentir o efeito de forma desproporcional.\n\nA Axios também faz uma ressalva: esse fluxo circular de recursos não é, por si só, irregular, e as empresas centrais do setor têm caixa e crédito mais fortes. O risco destacado pelos autores da análise está sobretudo nas companhias periféricas, com mais dívida e margens mais apertadas. A reportagem descreve uma vulnerabilidade possível, sem afirmar que uma crise já começou.",
+      "brazil_impact": "Quem empreende no Brasil não precisa acompanhar cada rodada bilionária, mas sente mudanças de preço e disponibilidade das ferramentas. Antes de depender de um único fornecedor para atendimento ou operação, veja se é possível exportar dados, trocar de serviço e continuar trabalhando durante uma indisponibilidade. Inclua o câmbio e o tempo de adaptação na conta. A promessa de crescimento da indústria não elimina os riscos de concentração para o cliente pequeno.",
+      "cover_url": "https://images.axios.com/7MTJB-qod5TP6s1uJWUL1v0_cYY%3D/0x0%3A1920x1080/1920x1080/2026/09/19/1789846283859.jpeg?w=3840",
+      "cover_caption": "Mapa das relações financeiras entre plataformas de nuvem e desenvolvedores de modelos de IA.",
+      "cover_credit": "Sona Asset Management, via Axios"
+    },
+    {
+      "id": "radar-20260921-clima-energia",
+      "title": "A conta de energia da IA entrou na conversa sobre o clima",
       "category": "Business",
       "source_name": "Associated Press",
-      "source_url": "https://apnews.com/article/00266dca90e4f8853f669648998d3bda",
-      "published_at": "2026-09-10T20:50:37Z",
-      "sectors": [
-        "Other",
-        "Professional services"
-      ],
-      "summary": "A Associated Press noticia que a Anthropic afirma ter bloqueado usos de seus modelos ligados a ataques digitais, vigilância e pesquisas com potencial de aplicação em armas biológicas. Os casos foram apresentados pela própria empresa em um relatório sobre uso indevido de IA.\n\nHá uma ressalva importante nessa cobertura: a Anthropic diz ter selecionado episódios excepcionais. Esses relatos não permitem concluir que representem o uso típico da tecnologia, nem medir sozinhos a frequência dos abusos.",
-      "brazil_impact": "Pense num assistente conectado ao WhatsApp comercial, à agenda ou ao cadastro de clientes. Cada acesso amplia o que ele pode fazer em nome da empresa. Comece por rascunhos que alguém confere e deixe alterações de preço, pagamentos e promessas ao cliente sob aprovação humana. Para um pequeno negócio, um erro desses pode virar prejuízo e desgaste com um cliente conhecido. Peça ao fornecedor que mostre como limitar acessos e interromper ações."
+      "source_url": "https://apnews.com/article/climate-change-un-fuel-ai-renewables-f3208930e39c7d233bdc24315065dcd2",
+      "published_at": "2026-09-21T13:00:00Z",
+      "sectors": ["Other", "Professional services", "Retail"],
+      "summary": "Na semana em que governos e empresas se reúnem em Nova York para discutir o clima, a demanda de energia dos centros de dados de IA ganhou espaço no debate. A Associated Press relata que o tema se soma à pressão dos preços dos combustíveis e aos impactos recentes de eventos climáticos extremos.\n\nO chefe da área climática da ONU, Simon Stiell, criticou o consumo de energia da IA e seus possíveis efeitos sobre emissões e contas de luz. Representantes do setor argumentam que os sistemas estão ficando mais eficientes e podem ajudar em pesquisas científicas. A reportagem reúne essas posições sem tratar os benefícios prometidos como compensação já demonstrada para todo o consumo.\n\nA discussão chega perto da vida cotidiana quando moradores associam a expansão dos centros de dados ao custo da eletricidade em suas regiões, segundo os entrevistados pela AP. O ponto em aberto é como expandir a infraestrutura, quem pagará por ela e quais fontes de energia serão usadas.",
+      "brazil_impact": "Para uma pequena empresa brasileira, o primeiro passo é saber onde a IA de fato ajuda e quanto custa mantê-la em uso. Isso inclui a assinatura, o tempo da equipe e, quando houver infraestrutura própria, a energia. Se sustentabilidade faz parte da proposta ao cliente, vale perguntar aos fornecedores como medem consumo e de onde vem a energia. É melhor conhecer a conta antes de ampliar o uso."
     }
   ]
 }
