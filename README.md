@@ -200,6 +200,6 @@ A seção “E a gente com isso?” usa o campo `brazil_impact`, separado da rep
 
 ### Imagens de capa
 
-`009_article_covers.sql` acrescenta URL, legenda e crédito. A capa e a legenda levam à matéria original. O job reconhece anexos de imagem e `media:content` do RSS; não inventa autoria nem usa imagens geradas. Campos ausentes continuam vazios. Imagens externas que falham são ocultadas sem deixar um ícone quebrado.
+`009_article_covers.sql` acrescenta URL, legenda e crédito. A capa e a legenda levam à matéria original. O job reconhece anexos de imagem e `media:content` do RSS; não inventa autoria nem usa imagens geradas. Quando a imagem externa falha ou não foi autorizada, uma capa gráfica da Ventura aparece com o título e o link para a reportagem.
 
-Na edição de 21/09, duas capas apontam para imagens das reportagens da Axios, com legenda e crédito. As matérias da AP seguem sem capa até haver autorização de uso de suas fotos. Legenda e crédito não substituem licença de reutilização da imagem; verificar também as condições das imagens da Axios antes de um lançamento comercial.
+Na edição de 21/09, as quatro capas são gráficas da Ventura: as imagens externas da Axios não carregaram no site publicado, e as condições de reutilização das fotos da Axios e da AP ainda não foram confirmadas. Legenda e crédito não substituem licença de uso. O link da capa leva ao artigo com a imagem original.
