@@ -4,6 +4,7 @@ import {createServerClient} from '@supabase/ssr';
 import {cookies} from 'next/headers';
 export const configured = () => Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 export const isDemo = () => process.env.DEMO_MODE === 'true' || (!configured() && process.env.NODE_ENV !== 'production');
+export const isEditorialPreview = () => isDemo() || process.env.EDITORIAL_PREVIEW === 'true';
 const boundedFetch:typeof fetch=(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(10000)});
 export function publicDb(){
  if(!configured()) throw new Error('Supabase is not configured');

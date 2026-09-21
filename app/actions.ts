@@ -8,6 +8,7 @@ import {profileSchema} from '@/lib/validation';
 export type FormState={message:string;ok?:boolean};
 export async function login(_:FormState,form:FormData):Promise<FormState>{if(isDemo()||!configured())return {message:'Esta é uma demonstração. Você pode explorar a edição de exemplo sem entrar na conta.'};const email=z.email().safeParse(form.get('email'));if(!email.success)return {message:'Informe um email válido.'};const db=await sessionDb();const {error}=await db.auth.signInWithOtp({email:email.data,options:{emailRedirectTo:authCallbackUrl(process.env.APP_URL!,form.get('next'))}});return {message:error?'Não foi possível enviar o link. Tente novamente em alguns instantes.':'Confira seu email para acessar a conta pelo link seguro.',ok:!error};}
 export async function loginGoogle(_:FormState,form:FormData):Promise<FormState>{
+ if(process.env.GOOGLE_AUTH_ENABLED!=='true')return {message:'O acesso com Google ainda não está disponível. Use seu email.'};
  if(isDemo()||!configured())return {message:'O acesso com Google estará disponível quando a conexão de login for configurada. Por enquanto, explore a conta de exemplo.'};
  if(!process.env.APP_URL)return {message:'O acesso ainda está sendo configurado. Tente novamente mais tarde.'};
  let destination:string|undefined;
