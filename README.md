@@ -20,7 +20,7 @@ MVP em Next.js para Vercel, com Supabase, OpenAI, Resend e integração Asaas pr
 | Produto | Preço | Entrega |
 |---|---:|---|
 | Radar diário | Grátis | Notícias e links de origem |
-| Ventura Semanal | R$ 19,90/mês | Edição personalizada com próximos passos e parceiros |
+| Ventura Semanal | R$ 9,90/mês | Edição personalizada com próximos passos e parceiros |
 | Plano de Rota IA | R$ 149,90, compra única | Diagnóstico inicial e três opções de projeto |
 | Parceiro Catálogo | R$ 49,90/mês | Perfil no catálogo |
 | Parceiro Conexões | R$ 99,90/mês | Catálogo e elegibilidade para recomendações semanais |
