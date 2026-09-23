@@ -262,6 +262,12 @@ alter table public.articles add column cover_caption text check(char_length(cove
 alter table public.articles add column cover_credit text check(char_length(cover_credit)<=300);
 grant select(cover_url,cover_caption,cover_credit) on public.articles to anon,authenticated;
 
+-- 010_daily_radar.sql
+alter table public.articles add column if not exists radar_date date;
+update public.articles set radar_date=(created_at at time zone 'America/Sao_Paulo')::date where status='published' and radar_date is null;
+create index if not exists articles_radar_date on public.articles(radar_date desc,editorial_score desc) where status='published';
+grant select(radar_date) on public.articles to anon,authenticated;
+
 -- seed.sql
 -- Source registry: checked public feeds, no content or private data.
 insert into public.sources(id,name,url,feed_url,kind,enabled) values

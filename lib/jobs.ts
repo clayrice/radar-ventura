@@ -10,6 +10,7 @@ import {feedAllowlist,sourceArticleUrl,titleKey,validateEdition,matchPartners,re
 import {editionEmail} from './email-template';
 import {unsubscribeToken} from './unsubscribe';
 import {roadmapOutput,roadmapInput} from './roadmap-schema';
+import {radarDate} from './radar-dates';
 import type {Article,Edition,Partner,Profile} from './types';
 type Db=ReturnType<typeof adminDb>;
 const model=()=>process.env.OPENAI_MODEL||'gpt-4.1-mini';
@@ -36,11 +37,11 @@ async function ingest(db:Db){let added=0;let errors=0;const sources=checked(awai
  }catch(e){errors++;checked(await db.from('sources').update({last_error:err(e)}).eq('id',source.id));}}));}
  return {added,source_errors:errors};
 }
-async function classify(db:Db,deadline:number){let published=0;let failures=0;const candidates=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',new Date(Date.now()-14*86400000).toISOString()).order('published_at',{ascending:false}).limit(3));
- for(const a of candidates||[]){if(Date.now()>deadline)break;checked(await db.from('articles').update({attempts:a.attempts+1}).eq('id',a.id));
+async function classify(db:Db,deadline:number){let published=0;let failures=0;const candidates=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',new Date(Date.now()-14*86400000).toISOString()).order('published_at',{ascending:false}).limit(6));
+ for(const a of candidates||[]){if(Date.now()>deadline||published>=4)break;checked(await db.from('articles').update({attempts:a.attempts+1}).eq('id',a.id));
  try{const output=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:a.excerpt,source:a.source_name});
  const decision=editorialDecision(output,a.source_kind,a.excerpt);
- checked(await db.from('articles').update({title:output.title,summary:output.summary,brazil_impact:output.brazil_impact,category:output.category,sectors:output.sectors,human_angle:output.human_angle,perspective_attribution:a.source_name,perspective_evidence:output.perspective_evidence,editorial_score:Math.round((output.business_relevance+output.reader_interest)/2),status:decision.publish?'published':'rejected',model:model(),last_error:decision.reason}).eq('id',a.id));if(decision.publish)published++;
+ checked(await db.from('articles').update({title:output.title,summary:output.summary,brazil_impact:output.brazil_impact,category:output.category,sectors:output.sectors,human_angle:output.human_angle,perspective_attribution:a.source_name,perspective_evidence:output.perspective_evidence,editorial_score:Math.round((output.business_relevance+output.reader_interest)/2),status:decision.publish?'published':'rejected',radar_date:decision.publish?radarDate():null,model:model(),last_error:decision.reason}).eq('id',a.id));if(decision.publish)published++;
 
  }catch(e){failures++;checked(await db.from('articles').update({last_error:err(e),status:a.attempts>=2?'review':'queued'}).eq('id',a.id));}}
  return {published,classification_failures:failures};
