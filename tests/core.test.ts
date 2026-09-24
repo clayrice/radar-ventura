@@ -1,4 +1,4 @@
-import {editorialDecision,dailyMix} from '../lib/editorial';
+import {editorialDecision,editorialFallbackDecision,dailyMix} from '../lib/editorial';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {canonicalUrl,weekStart,profileSchema,escapeHtml} from '../lib/validation';
 import {sourceArticleUrl,titleKey,validateEdition,matchPartners,retryDelivery} from '../lib/pipeline-core';
@@ -33,6 +33,9 @@ test('editorial impede release isolado, opinião inventada e lançamento increme
  assert.equal(editorialDecision({...output,perspective_evidence:'Uma suposta opinião que não existe no texto da reportagem.'},'press',excerpt).publish,false);
  assert.equal(editorialDecision({...output,category:'Big launches',launch_importance:84},'press',excerpt).publish,false);
  assert.equal(editorialDecision({...output,category:'Big launches',launch_importance:95},'analysis',excerpt).publish,true);
+ assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:30,reader_interest:40},'press',excerpt).publish,true);
+ assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:24,reader_interest:80},'press',excerpt).publish,false);
+ assert.equal(editorialFallbackDecision({...output,publish:false,category:'Big launches',launch_importance:74},'press',excerpt).publish,false);
 });
 test('radar mistura assuntos e limita sequência de lançamentos',()=>{
  const launches=Array.from({length:9},(_,i)=>({...demoArticles[0],id:'launch-'+i,category:'Big launches'}));
