@@ -36,5 +36,6 @@ export function dailyMix(articles:Article[],limit=12):Article[]{
  const launches=articles.filter(a=>a.category==='Big launches').slice(0,launchLimit);
  const pool=[...regular,...launches];const result:Article[]=[];const topics=['Backstage','Business','Work','Big launches'];
  while(result.length<limit&&pool.length){let found=false;for(const topic of topics){const i=pool.findIndex(a=>a.category===topic);if(i>=0&&result.length<limit){result.push(pool.splice(i,1)[0]);found=true;}}if(!found)break;}
+ const minimum=Math.min(3,limit,articles.length);for(const article of articles){if(result.length>=minimum)break;if(!result.some(item=>item.id===article.id))result.push(article);}
  return result;
 }

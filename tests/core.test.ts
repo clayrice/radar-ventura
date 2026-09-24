@@ -43,4 +43,5 @@ test('radar mistura assuntos e limita sequência de lançamentos',()=>{
  assert.equal(mixed.filter(a=>a.category==='Big launches').length,1);
  assert.ok(mixed.some(a=>a.category==='Backstage'));
  assert.ok(mixed.some(a=>a.category==='Work'));
+ assert.equal(dailyMix(launches,3).length,3);
 });
