@@ -1,7 +1,7 @@
 import 'server-only';
 import Parser from 'rss-parser';
 import {feedCover} from './news-images';
-import {editorialInstructions,editorialDecision,editorialFallbackDecision} from './editorial';
+import {editorialInstructions,editorialDecision,editorialFallbackDecision,editorialCompletionDecision} from './editorial';
 import {randomUUID} from 'node:crypto';
 import {adminDb,checked,isDemo} from './db';
 import {generate} from './ai';
@@ -37,16 +37,17 @@ async function ingest(db:Db){let added=0;let errors=0;const sources=checked(awai
  }catch(e){errors++;checked(await db.from('sources').update({last_error:err(e)}).eq('id',source.id));}}));}
  return {added,source_errors:errors};
 }
-async function classify(db:Db,deadline:number){const today=radarDate();const existing=checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',today));let published=0;let failures=0;const flexible:{id:string;score:number}[]=[];const candidates=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',new Date(Date.now()-14*86400000).toISOString()).order('published_at',{ascending:false}).limit(8));
+async function classify(db:Db,deadline:number){const today=radarDate();const existing=checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',today));let published=0;let failures=0;const flexible:{id:string;score:number}[]=[];const completion:{id:string;score:number}[]=[];const candidates=checked(await db.from('articles').select('*').in('status',['queued','rejected']).in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',new Date(Date.now()-14*86400000).toISOString()).order('published_at',{ascending:false}).limit(10));
  for(const a of candidates||[]){if(Date.now()>deadline||(existing?.length||0)+published>=4)break;checked(await db.from('articles').update({attempts:a.attempts+1}).eq('id',a.id));
  try{const output=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:a.excerpt,source:a.source_name});
  const decision=editorialDecision(output,a.source_kind,a.excerpt);
  checked(await db.from('articles').update({title:output.title,summary:output.summary,brazil_impact:output.brazil_impact,category:output.category,sectors:output.sectors,human_angle:output.human_angle,perspective_attribution:a.source_name,perspective_evidence:output.perspective_evidence,editorial_score:Math.round((output.business_relevance+output.reader_interest)/2),status:decision.publish?'published':'rejected',radar_date:decision.publish?today:null,model:model(),last_error:decision.reason}).eq('id',a.id));if(decision.publish)published++;
- else if(editorialFallbackDecision(output,a.source_kind,a.excerpt).publish)flexible.push({id:a.id,score:output.business_relevance+output.reader_interest});
+ else {const score=output.business_relevance+output.reader_interest;if(editorialFallbackDecision(output,a.source_kind,a.excerpt).publish)flexible.push({id:a.id,score});else if(editorialCompletionDecision(output,a.source_kind,a.excerpt).publish)completion.push({id:a.id,score});}
 
  }catch(e){failures++;checked(await db.from('articles').update({last_error:err(e),status:a.attempts>=2?'review':'queued'}).eq('id',a.id));}}
- let flexiblePublished=0;for(const candidate of flexible.sort((a,b)=>b.score-a.score).slice(0,Math.max(0,3-(existing?.length||0)-published))){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;flexiblePublished++;}
- return {published,flexible_published:flexiblePublished,classification_failures:failures};
+ let flexiblePublished=0;const needed=()=>Math.max(0,3-(existing?.length||0)-published);for(const candidate of flexible.sort((a,b)=>b.score-a.score).slice(0,needed())){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;flexiblePublished++;}
+ let completionPublished=0;for(const candidate of completion.sort((a,b)=>b.score-a.score).slice(0,needed())){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;completionPublished++;}
+ return {published,flexible_published:flexiblePublished,completion_published:completionPublished,classification_failures:failures};
 }
 async function generateWeekly(db:Db,deadline:number){
  const week=weekStart();checked(await db.rpc('enqueue_editions',{edition_week:week}));

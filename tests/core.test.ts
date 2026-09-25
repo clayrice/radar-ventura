@@ -1,4 +1,4 @@
-import {editorialDecision,editorialFallbackDecision,dailyMix} from '../lib/editorial';
+import {editorialDecision,editorialFallbackDecision,editorialCompletionDecision,dailyMix,hasRadarParagraphs} from '../lib/editorial';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {canonicalUrl,weekStart,profileSchema,escapeHtml} from '../lib/validation';
 import {sourceArticleUrl,titleKey,validateEdition,matchPartners,retryDelivery} from '../lib/pipeline-core';
@@ -36,6 +36,14 @@ test('editorial impede release isolado, opinião inventada e lançamento increme
  assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:30,reader_interest:40},'press',excerpt).publish,true);
  assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:24,reader_interest:80},'press',excerpt).publish,false);
  assert.equal(editorialFallbackDecision({...output,publish:false,category:'Big launches',launch_importance:74},'press',excerpt).publish,false);
+ assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:5,reader_interest:10},'press',excerpt).publish,true);
+ assert.equal(editorialCompletionDecision({...output,publish:false,category:'Big launches',launch_importance:64},'press',excerpt).publish,false);
+});
+test('formato editorial aceita três parágrafos naturais sem exigir o mesmo tamanho em todos',()=>{
+ const paragraph='Uma reportagem contextualiza a mudança para empresas e trabalhadores, atribuindo as posições apresentadas e preservando as ressalvas da fonte consultada.';
+ const summary=[paragraph,paragraph+' O segundo trecho acrescenta fatos e contexto verificável.',paragraph+' O último trecho registra o que ainda permanece em aberto.'].join('\n\n');
+ assert.equal(hasRadarParagraphs(summary),true);
+ assert.equal(hasRadarParagraphs(summary.split('\n\n').slice(0,2).join('\n\n')),false);
 });
 test('radar mistura assuntos e limita sequência de lançamentos',()=>{
  const launches=Array.from({length:9},(_,i)=>({...demoArticles[0],id:'launch-'+i,category:'Big launches'}));

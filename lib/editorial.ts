@@ -8,7 +8,10 @@ Uma declaração provocadora pode ser notícia, mas atribua a fala, preserve res
 Notícias de ferramentas só entram como Big launches quando a mudança for excepcional e importante fora do público técnico (launch_importance >= 85). Explique a consequência humana ou empresarial, não a ficha técnica. Atualizações incrementais, tutoriais e papers sem impacto humano claro devem ser rejeitados.
 Use apenas o trecho fornecido de reportagem ou análise independente. Identifique a leitura humana presente na fonte em human_angle. perspective_evidence deve ser um trecho literal contínuo do material recebido que sustente essa leitura. Não invente a opinião de um jornalista. Se faltar perspectiva humana fundamentada, deixe esses campos vazios e publish=false.
 Produza título e texto originais em português brasileiro. Escreva de três a quatro parágrafos separados por duas quebras de linha no campo summary, com 140 a 180 palavras no total. O campo summary deve conter exclusivamente o acontecimento, o contexto factual e as posições atribuídas às fontes. Não inclua opinião da Ventura, conselhos, perguntas ao leitor, aplicações para empresas ou a expressão "Na leitura da Ventura" no corpo da notícia. Toda reflexão e orientação ao empreendedor deve ficar exclusivamente em brazil_impact, na seção "E a gente com isso?". Não acrescente fatos para alongar um trecho insuficiente: nesse caso, publish=false. Atribua afirmações controversas no próprio resumo. business_relevance mede utilidade para negócios; reader_interest mede interesse humano, não sensacionalismo. Inclua também brazil_impact: um parágrafo de 60 a 100 palavras para a seção final "E a gente com isso?". Relacione a notícia à realidade de empresários e empreendedores brasileiros, com uma consequência específica e um próximo passo proporcional. Considere, quando pertinente, equipe enxuta, caixa, atendimento por WhatsApp, relacionamento com clientes ou custos em moeda estrangeira. Use exemplos como possibilidades, sem inventar dados brasileiros, obrigações legais ou garantias de retorno. Não repita o resumo nem atribua esta reflexão ao jornalista. Não copie parágrafos. A publicidade da Ventura não interfere na seleção.`;
-export function hasRadarParagraphs(value:string){const paragraphs=value.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);return paragraphs.length>=3&&paragraphs.length<=4&&paragraphs.every(p=>p.length>=60);}
+export function hasRadarParagraphs(value:string){
+ const paragraphs=value.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);
+ return paragraphs.length>=3&&paragraphs.length<=4&&paragraphs.every(p=>p.length>=30);
+}
 const normalize=(value:string)=>value.normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
 function editorialRequirement(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
  if(!['press','analysis'].includes(sourceKind))return {publish:false,reason:'Fonte sem análise independente'};
@@ -28,6 +31,11 @@ export function editorialFallbackDecision(output:z.infer<typeof classificationSc
  if(output.business_relevance<25||output.reader_interest<35)return {publish:false,reason:'Interesse insuficiente para completar a edição'};
  if(output.category==='Big launches'&&output.launch_importance<75)return {publish:false,reason:'Lançamento incremental'};
  return {publish:true,reason:'Seleção complementar para manter a edição diversa'};
+}
+export function editorialCompletionDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
+ const required=editorialRequirement(output,sourceKind,excerpt);if(required)return required;
+ if(output.category==='Big launches'&&output.launch_importance<65)return {publish:false,reason:'Lançamento incremental'};
+ return {publish:true,reason:'Melhor matéria elegível para completar a edição diária'};
 }
 // Preserve recency within each category; keep launches from dominating the radar.
 export function dailyMix(articles:Article[],limit=12):Article[]{
