@@ -1,4 +1,4 @@
-import {editorialDecision,editorialFallbackDecision,editorialCompletionDecision,selectDailyCandidates,dailyMix,hasRadarParagraphs} from '../lib/editorial';
+import {editorialDecision,editorialFallbackDecision,editorialCompletionDecision,selectDailyCandidates,dailyMix,hasRadarParagraphs,normalizeRadarSummary} from '../lib/editorial';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {canonicalUrl,weekStart,profileSchema,escapeHtml} from '../lib/validation';
 import {sourceArticleUrl,titleKey,validateEdition,matchPartners,retryDelivery} from '../lib/pipeline-core';
@@ -54,6 +54,10 @@ test('formato editorial aceita três parágrafos naturais sem exigir o mesmo tam
  const summary=[paragraph,paragraph+' O segundo trecho acrescenta fatos e contexto verificável.',paragraph+' O último trecho registra o que ainda permanece em aberto.'].join('\n\n');
  assert.equal(hasRadarParagraphs(summary),true);
  assert.equal(hasRadarParagraphs(summary.split('\n\n').slice(0,2).join('\n\n')),false);
+ const continuous=Array.from({length:6},(_,i)=>`Esta é a frase ${i+1} com contexto suficiente para formar um parágrafo editorial claro e verificável.`).join(' ');
+ const normalized=normalizeRadarSummary(continuous);
+ assert.equal(hasRadarParagraphs(normalized),true);
+ assert.equal(normalized.split('\n\n').length,3);
 });
 test('radar mistura assuntos e limita sequência de lançamentos',()=>{
  const launches=Array.from({length:9},(_,i)=>({...demoArticles[0],id:'launch-'+i,category:'Big launches'}));
