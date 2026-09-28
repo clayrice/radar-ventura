@@ -27,6 +27,13 @@ function editorialRequirement(output:z.infer<typeof classificationSchema>,source
  if(output.human_angle.trim().length<30||output.perspective_evidence.trim().length<30||!normalize(excerpt).includes(normalize(output.perspective_evidence)))return {publish:false,reason:'Perspectiva sem evidência no trecho da fonte'};
  return null;
 }
+function editorialMinimumRequirement(output:z.infer<typeof classificationSchema>,sourceKind:string){
+ if(!['press','analysis'].includes(sourceKind))return {publish:false,reason:'Fonte sem análise independente'};
+ if(output.brazil_impact.trim().length<80)return {publish:false,reason:'Falta reflexão para o empreendedor brasileiro'};
+ if(!hasRadarParagraphs(output.summary))return {publish:false,reason:'Texto precisa de três a quatro parágrafos'};
+ if(output.human_angle.trim().length<30)return {publish:false,reason:'Falta perspectiva humana'};
+ return null;
+}
 export function editorialDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
  const required=editorialRequirement(output,sourceKind,excerpt);if(required)return required;
  if(!output.publish||output.business_relevance<40||output.reader_interest<50)return {publish:false,reason:'Baixa relevância ou interesse humano'};
@@ -40,8 +47,7 @@ export function editorialFallbackDecision(output:z.infer<typeof classificationSc
  return {publish:true,reason:'Seleção complementar para manter a edição diversa'};
 }
 export function editorialCompletionDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
- const required=editorialRequirement(output,sourceKind,excerpt);if(required)return required;
- if(output.business_relevance+output.reader_interest<50||output.reader_interest<20)return {publish:false,reason:'Interesse insuficiente para o Radar'};
+ const required=editorialMinimumRequirement(output,sourceKind);if(required)return required;
  if(output.category==='Big launches'&&output.launch_importance<65)return {publish:false,reason:'Lançamento incremental'};
  return {publish:true,reason:'Melhor matéria elegível para completar a edição diária'};
 }

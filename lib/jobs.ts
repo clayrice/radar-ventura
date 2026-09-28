@@ -14,6 +14,7 @@ import {radarDate} from './radar-dates';
 import type {Article,Edition,Partner,Profile} from './types';
 type Db=ReturnType<typeof adminDb>;
 const model=()=>process.env.OPENAI_MODEL||'gpt-4.1-mini';
+const minimumDailyArticles=3;
 const err=(e:unknown)=>e instanceof Error?e.message.slice(0,300):'Unknown failure';
 const parser=new Parser<Record<string,unknown>,{mediaContent?:{$?:{url?:string;type?:string;medium?:string};'media:credit'?:string[]}[]}>({customFields:{item:[['media:content','mediaContent',{keepArray:true}]]}});
 
@@ -39,7 +40,7 @@ async function ingest(db:Db){let added=0;let errors=0;const sources=checked(awai
 }
 async function classify(db:Db,deadline:number){const today=radarDate();const existing=checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',today));let published=0;let recovered=0;let failures=0;const flexible:{id:string;score:number}[]=[];const completion:{id:string;score:number}[]=[];const recent=new Date(Date.now()-14*86400000).toISOString();
  const malformed=checked(await db.from('articles').select('*').eq('status','rejected').eq('last_error','Texto precisa de três a quatro parágrafos').neq('category','Big launches').gte('published_at',recent).order('editorial_score',{ascending:false}).order('published_at',{ascending:false}).limit(12));
- for(const a of malformed||[]){if((existing?.length||0)+published>=3)break;const summary=normalizeRadarSummary(a.summary);const score=a.editorial_score||0;const output={title:a.title,summary,brazil_impact:a.brazil_impact||'',category:a.category,sectors:a.sectors||[],publish:false,human_angle:a.human_angle||'',perspective_evidence:a.perspective_evidence||'',business_relevance:score,reader_interest:score,launch_importance:100};if(!editorialCompletionDecision(output,a.source_kind,a.excerpt).publish)continue;checked(await db.from('articles').update({summary,status:'published',radar_date:today,last_error:null}).eq('id',a.id));published++;recovered++;}
+ for(const a of malformed||[]){if((existing?.length||0)+published>=minimumDailyArticles)break;const summary=normalizeRadarSummary(a.summary);const score=a.editorial_score||0;const output={title:a.title,summary,brazil_impact:a.brazil_impact||'',category:a.category,sectors:a.sectors||[],publish:false,human_angle:a.human_angle||'',perspective_evidence:a.perspective_evidence||'',business_relevance:score,reader_interest:score,launch_importance:100};if(!editorialCompletionDecision(output,a.source_kind,a.excerpt).publish)continue;checked(await db.from('articles').update({summary,status:'published',radar_date:today,last_error:null}).eq('id',a.id));published++;recovered++;}
  const pool=checked(await db.from('articles').select('*').in('status',['queued','rejected']).in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',recent).order('published_at',{ascending:false}).limit(30));const candidates=selectDailyCandidates(pool||[],10);
  for(const a of candidates||[]){if(Date.now()>deadline||(existing?.length||0)+published>=4)break;checked(await db.from('articles').update({attempts:a.attempts+1}).eq('id',a.id));
  try{const generated=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:a.excerpt,source:a.source_name});const output={...generated,summary:normalizeRadarSummary(generated.summary)};
@@ -48,7 +49,7 @@ async function classify(db:Db,deadline:number){const today=radarDate();const exi
  else {const score=output.business_relevance+output.reader_interest;if(editorialFallbackDecision(output,a.source_kind,a.excerpt).publish)flexible.push({id:a.id,score});else if(editorialCompletionDecision(output,a.source_kind,a.excerpt).publish)completion.push({id:a.id,score});}
 
  }catch(e){failures++;checked(await db.from('articles').update({last_error:err(e),status:a.attempts>=2?'review':'queued'}).eq('id',a.id));}}
- let flexiblePublished=0;const needed=()=>Math.max(0,3-(existing?.length||0)-published);for(const candidate of flexible.sort((a,b)=>b.score-a.score).slice(0,needed())){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;flexiblePublished++;}
+ let flexiblePublished=0;const needed=()=>Math.max(0,minimumDailyArticles-(existing?.length||0)-published);for(const candidate of flexible.sort((a,b)=>b.score-a.score).slice(0,needed())){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;flexiblePublished++;}
  let completionPublished=0;for(const candidate of completion.sort((a,b)=>b.score-a.score).slice(0,needed())){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;completionPublished++;}
  return {published,recovered_published:recovered,flexible_published:flexiblePublished,completion_published:completionPublished,classification_failures:failures};
 }
