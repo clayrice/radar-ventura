@@ -1,4 +1,4 @@
-import {editorialDecision,editorialFallbackDecision,editorialCompletionDecision,dailyMix,hasRadarParagraphs} from '../lib/editorial';
+import {editorialDecision,editorialFallbackDecision,editorialCompletionDecision,selectDailyCandidates,dailyMix,hasRadarParagraphs} from '../lib/editorial';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {canonicalUrl,weekStart,profileSchema,escapeHtml} from '../lib/validation';
 import {sourceArticleUrl,titleKey,validateEdition,matchPartners,retryDelivery} from '../lib/pipeline-core';
@@ -36,8 +36,18 @@ test('editorial impede release isolado, opinião inventada e lançamento increme
  assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:30,reader_interest:40},'press',excerpt).publish,true);
  assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:24,reader_interest:80},'press',excerpt).publish,false);
  assert.equal(editorialFallbackDecision({...output,publish:false,category:'Big launches',launch_importance:74},'press',excerpt).publish,false);
- assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:5,reader_interest:10},'press',excerpt).publish,true);
+ assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:5,reader_interest:10},'press',excerpt).publish,false);
+ assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:30,reader_interest:25},'press',excerpt).publish,true);
  assert.equal(editorialCompletionDecision({...output,publish:false,category:'Big launches',launch_importance:64},'press',excerpt).publish,false);
+});
+test('seleção para análise evita que uma única fonte domine as chamadas diárias',()=>{
+ const candidates=[
+  ...Array.from({length:6},(_,i)=>({source_id:'fonte-a',published_at:`2026-09-25T0${9-i}:00:00Z`,id:`a-${i}`})),
+  ...Array.from({length:4},(_,i)=>({source_id:'fonte-b',published_at:`2026-09-24T0${9-i}:00:00Z`,id:`b-${i}`})),
+  {source_id:'fonte-c',published_at:'2026-09-23T09:00:00Z',id:'c-0'}
+ ];
+ const selected=selectDailyCandidates(candidates,5);
+ assert.deepEqual(selected.map(item=>item.id),['a-0','a-1','b-0','b-1','c-0']);
 });
 test('formato editorial aceita três parágrafos naturais sem exigir o mesmo tamanho em todos',()=>{
  const paragraph='Uma reportagem contextualiza a mudança para empresas e trabalhadores, atribuindo as posições apresentadas e preservando as ressalvas da fonte consultada.';

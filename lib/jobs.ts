@@ -1,7 +1,7 @@
 import 'server-only';
 import Parser from 'rss-parser';
 import {feedCover} from './news-images';
-import {editorialInstructions,editorialDecision,editorialFallbackDecision,editorialCompletionDecision} from './editorial';
+import {editorialInstructions,editorialDecision,editorialFallbackDecision,editorialCompletionDecision,selectDailyCandidates} from './editorial';
 import {randomUUID} from 'node:crypto';
 import {adminDb,checked,isDemo} from './db';
 import {generate} from './ai';
@@ -37,7 +37,7 @@ async function ingest(db:Db){let added=0;let errors=0;const sources=checked(awai
  }catch(e){errors++;checked(await db.from('sources').update({last_error:err(e)}).eq('id',source.id));}}));}
  return {added,source_errors:errors};
 }
-async function classify(db:Db,deadline:number){const today=radarDate();const existing=checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',today));let published=0;let failures=0;const flexible:{id:string;score:number}[]=[];const completion:{id:string;score:number}[]=[];const candidates=checked(await db.from('articles').select('*').in('status',['queued','rejected']).in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',new Date(Date.now()-14*86400000).toISOString()).order('published_at',{ascending:false}).limit(10));
+async function classify(db:Db,deadline:number){const today=radarDate();const existing=checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',today));let published=0;let failures=0;const flexible:{id:string;score:number}[]=[];const completion:{id:string;score:number}[]=[];const pool=checked(await db.from('articles').select('*').in('status',['queued','rejected']).in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',new Date(Date.now()-14*86400000).toISOString()).order('published_at',{ascending:false}).limit(30));const candidates=selectDailyCandidates(pool||[],10);
  for(const a of candidates||[]){if(Date.now()>deadline||(existing?.length||0)+published>=4)break;checked(await db.from('articles').update({attempts:a.attempts+1}).eq('id',a.id));
  try{const output=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:a.excerpt,source:a.source_name});
  const decision=editorialDecision(output,a.source_kind,a.excerpt);
