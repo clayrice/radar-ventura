@@ -1,6 +1,6 @@
 import 'server-only';
 import Parser from 'rss-parser';
-import {feedCover} from './news-images';
+import {feedCover,pageCover} from './news-images';
 import {editorialInstructions,editorialDecision,editorialFallbackDecision,editorialCompletionDecision,selectDailyCandidates,normalizeRadarSummary} from './editorial';
 import {randomUUID} from 'node:crypto';
 import {adminDb,checked,isDemo} from './db';
@@ -16,7 +16,7 @@ type Db=ReturnType<typeof adminDb>;
 const model=()=>process.env.OPENAI_MODEL||'gpt-4.1-mini';
 const minimumDailyArticles=3;
 const err=(e:unknown)=>e instanceof Error?e.message.slice(0,300):'Unknown failure';
-const parser=new Parser<Record<string,unknown>,{mediaContent?:{$?:{url?:string;type?:string;medium?:string};'media:credit'?:string[]}[]}>({customFields:{item:[['media:content','mediaContent',{keepArray:true}]]}});
+const parser=new Parser<Record<string,unknown>,{mediaContent?:{$?:{url?:string;type?:string;medium?:string};'media:credit'?:string[]}[];mediaThumbnail?:{$?:{url?:string;type?:string;medium?:string};'media:credit'?:string[]}[]}>({customFields:{item:[['media:content','mediaContent',{keepArray:true}],['media:thumbnail','mediaThumbnail',{keepArray:true}]]}});
 
 async function boundedFeed(url:string){
  const res=await fetch(url,{signal:AbortSignal.timeout(12000),redirect:'error',headers:{'User-Agent':'VenturaRadar/0.1 (+https://ventura-ai.com)'}});
@@ -37,6 +37,17 @@ async function ingest(db:Db){let added=0;let errors=0;const sources=checked(awai
  }checked(await db.from('sources').update({last_fetched_at:new Date().toISOString(),last_error:null}).eq('id',source.id));
  }catch(e){errors++;checked(await db.from('sources').update({last_error:err(e)}).eq('id',source.id));}}));}
  return {added,source_errors:errors};
+}
+async function hydratePublishedCovers(db:Db,deadline:number){
+ const recent=new Date(Date.now()-14*86400000).toISOString();
+ const rows=checked(await db.from('articles').select('id,source_id,source_url').eq('status','published').is('cover_url',null).gte('published_at',recent).order('radar_date',{ascending:false,nullsFirst:false}).order('published_at',{ascending:false}).limit(8));
+ let hydrated=0;let failures=0;
+ for(let offset=0;offset<(rows||[]).length&&Date.now()<deadline-12000;offset+=3){
+  const batch=(rows||[]).slice(offset,offset+3);
+  const results=await Promise.all(batch.map(async article=>{try{const allowed=feedAllowlist[article.source_id]?.hosts||[];const cover=await pageCover(article.source_url,allowed);if(!('cover_url' in cover))return false;checked(await db.from('articles').update(cover).eq('id',article.id).is('cover_url',null));return true;}catch{return null;}}));
+  hydrated+=results.filter(value=>value===true).length;failures+=results.filter(value=>value===null).length;
+ }
+ return {covers_hydrated:hydrated,cover_failures:failures};
 }
 async function classify(db:Db,deadline:number){const today=radarDate();const existing=checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',today));let published=0;let recovered=0;let failures=0;const flexible:{id:string;score:number}[]=[];const completion:{id:string;score:number}[]=[];const recent=new Date(Date.now()-14*86400000).toISOString();
  const malformed=checked(await db.from('articles').select('*').eq('status','rejected').eq('last_error','Texto precisa de três a quatro parágrafos').gte('published_at',recent).order('editorial_score',{ascending:false}).order('published_at',{ascending:false}).limit(12));
@@ -107,7 +118,7 @@ async function generateRoadmaps(db:Db,deadline:number){
 export async function runDaily(){if(isDemo())return {skipped:'demo_mode'};
  const db=adminDb();const owner=randomUUID();const acquired=checked(await db.rpc('acquire_job',{lock_name:'daily',lock_owner:owner}));if(!acquired)return {skipped:'already_running'};
  const run=checked(await db.from('job_runs').insert({job:'daily'}).select('id').single());if(!run)throw new Error('Could not create job run');const deadline=Date.now()+190000;
- try{checked(await db.from('subscriptions').update({status:'inactive'}).eq('status','active').lte('expires_at',new Date().toISOString()));checked(await db.from('partners').update({active:false}).eq('active',true).lte('expires_at',new Date().toISOString()));const metrics={...await ingest(db),...await classify(db,deadline),...await generateWeekly(db,deadline),...await generateRoadmaps(db,deadline),...await deliver(db,deadline)};checked(await db.from('job_runs').update({status:'completed',finished_at:new Date().toISOString(),metrics}).eq('id',run.id));return metrics;
+ try{checked(await db.from('subscriptions').update({status:'inactive'}).eq('status','active').lte('expires_at',new Date().toISOString()));checked(await db.from('partners').update({active:false}).eq('active',true).lte('expires_at',new Date().toISOString()));const metrics={...await ingest(db),...await classify(db,deadline),...await hydratePublishedCovers(db,deadline),...await generateWeekly(db,deadline),...await generateRoadmaps(db,deadline),...await deliver(db,deadline)};checked(await db.from('job_runs').update({status:'completed',finished_at:new Date().toISOString(),metrics}).eq('id',run.id));return metrics;
  }catch(error){checked(await db.from('job_runs').update({status:'failed',finished_at:new Date().toISOString(),error:err(error)}).eq('id',run.id));throw error;
  }finally{checked(await db.rpc('release_job',{lock_name:'daily',lock_owner:owner}));}
 }
