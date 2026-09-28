@@ -48,7 +48,6 @@ export function editorialFallbackDecision(output:z.infer<typeof classificationSc
 }
 export function editorialCompletionDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
  const required=editorialMinimumRequirement(output,sourceKind);if(required)return required;
- if(output.category==='Big launches'&&output.launch_importance<65)return {publish:false,reason:'Lançamento incremental'};
  return {publish:true,reason:'Melhor matéria elegível para completar a edição diária'};
 }
 export function selectDailyCandidates<T extends {source_id:string;published_at:string}>(articles:T[],limit=10){
