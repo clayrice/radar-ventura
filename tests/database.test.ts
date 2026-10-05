@@ -14,6 +14,7 @@ test('PostgreSQL: isolamento, pagamentos, cotas e idempotência',async()=>{
  await assert.rejects(db.exec(`select reserve_ai_call()`));
  assert.equal((await db.query(`update profiles set company='Invadida' where user_id='${u2}' returning user_id`)).rows.length,0);
  await db.exec('reset role;set role anon;');await assert.rejects(db.exec('select * from profiles'));await assert.rejects(db.exec('select id from editions'));await db.exec('reset role;');
+ await db.exec('set role anon;');await assert.rejects(db.exec('select * from instagram_posts'));await db.exec('reset role;set role authenticated;');await assert.rejects(db.exec('select * from instagram_posts'));await assert.rejects(db.exec("insert into instagram_posts(account_id,radar_date,title,caption,source_name) values('1',current_date,'Título','Texto','Fonte')"));await db.exec('reset role;');
  assert.equal((await db.query<{ok:boolean}>(`select acquire_job('daily','${u1}') as ok`)).rows[0].ok,true);
  assert.equal((await db.query<{ok:boolean}>(`select acquire_job('daily','${u2}') as ok`)).rows[0].ok,false);
  await db.exec(`select release_job('daily','${u2}')`);assert.equal((await db.query('select * from job_locks')).rows.length,1);
@@ -43,5 +44,11 @@ test('PostgreSQL: isolamento, pagamentos, cotas e idempotência',async()=>{
  await db.exec(`insert into sources(id,name,url,kind) values('vendor','Fornecedor','https://example.com','primary'),('press','Jornal','https://news.example.com','press');`);
  await assert.rejects(db.exec(`insert into articles(source_id,source_name,source_url,title,title_key,excerpt,published_at,status,human_angle,perspective_attribution,perspective_evidence) values('vendor','Fornecedor','https://example.com/a','Título original','key-vendor','Texto original',now(),'published','Uma perspectiva longa o suficiente para a verificação.','Fornecedor','Um trecho suficientemente longo usado como evidência.')`));
  await assert.rejects(db.exec(`insert into articles(source_id,source_name,source_url,title,title_key,excerpt,published_at,status) values('press','Jornal','https://news.example.com/a','Título original','key-press','Texto original',now(),'published')`));
+ const socialArticle=(await db.query<{id:string}>(`insert into articles(source_id,source_name,source_url,title,title_key,excerpt,published_at) values('press','Jornal','https://news.example.com/social','Notícia social','key-social','Texto original',now()) returning id`)).rows[0].id;
+ await db.exec(`set role service_role;insert into instagram_posts(article_id,account_id,radar_date,slot,title,caption,source_name) values('${socialArticle}','123',current_date,1,'Título','Legenda','Fonte')`);
+ await assert.rejects(db.exec(`insert into instagram_posts(article_id,account_id,radar_date,slot,title,caption,source_name) values('${socialArticle}','123',current_date,2,'Título','Legenda','Fonte')`));
+ await assert.rejects(db.exec(`insert into instagram_posts(article_id,account_id,radar_date,slot,title,caption,source_name) values('${socialArticle}','456',current_date,4,'Título','Legenda','Fonte')`));
+ assert.equal((await db.query('select * from instagram_posts')).rows.length,1);
+ await db.exec('reset role;');
  await db.close();
 });

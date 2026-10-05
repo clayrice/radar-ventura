@@ -1,12 +1,12 @@
 import {z} from 'zod';
 import {sectors,categories,capabilities} from './types';
-import {objectives,interestAreas,businessModels,aiLevels} from './profile-options';
+import {objectives,interestAreas,businessModels,aiLevels,weeklyPreferences} from './profile-options';
 export const profileSchema=z.object({
  company:z.string().trim().min(2).max(120),sector:z.enum(sectors),
  size:z.enum(['Solo','2–10','11–50','51–200','200+']),
  objective:z.enum(objectives),business_model:z.enum(businessModels),ai_level:z.enum(aiLevels),
  interests:z.array(z.enum(interestAreas)).min(1).max(3).refine(values=>new Set(values).size===values.length),
- email_opt_in:z.boolean()
+ preferences:z.object({ambition:z.enum(weeklyPreferences.ambition),decision_role:z.enum(weeklyPreferences.decision_role),experiment_time:z.enum(weeklyPreferences.experiment_time),adoption_limit:z.enum(weeklyPreferences.adoption_limit)}).optional(),email_opt_in:z.boolean()
 });
 export const classificationSchema=z.object({
  title:z.string().min(10).max(180),summary:z.string().min(60).max(2400),category:z.enum(categories),

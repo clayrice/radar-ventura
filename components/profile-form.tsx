@@ -3,7 +3,7 @@ import {useActionState,useState} from 'react';
 import {label as pt} from '@/lib/labels';
 import {saveProfile} from '@/app/actions';
 import {sectors,type Profile} from '@/lib/types';
-import {objectives,interestAreas,businessModels,aiLevels} from '@/lib/profile-options';
+import {objectives,interestAreas,businessModels,aiLevels,weeklyPreferences} from '@/lib/profile-options';
 
 export function ProfileForm({profile,demo=false}:{profile:Profile|null;demo?:boolean}){
  const [state,action,pending]=useActionState(saveProfile,{message:''});
@@ -23,6 +23,10 @@ export function ProfileForm({profile,demo=false}:{profile:Profile|null;demo?:boo
   {dropdown('business_model','Quem sua empresa atende?',businessModels,profile?.business_model)}
   {dropdown('objective','Qual é seu principal objetivo com IA?',objectives,profile?.objective)}
   {dropdown('ai_level','Como vocês usam IA hoje?',aiLevels,profile?.ai_level)}
+  {dropdown('ambition','Qual oportunidade você mais quer explorar?',weeklyPreferences.ambition,profile?.preferences?.ambition)}
+  {dropdown('decision_role','Qual é seu papel na empresa?',weeklyPreferences.decision_role,profile?.preferences?.decision_role)}
+  {dropdown('experiment_time','Quanto tempo pode dedicar a testar uma sugestão?',weeklyPreferences.experiment_time,profile?.preferences?.experiment_time)}
+  {dropdown('adoption_limit','Qual é o principal limite para começar?',weeklyPreferences.adoption_limit,profile?.preferences?.adoption_limit)}
   <fieldset className="full" aria-describedby="interests-help"><legend>Quais áreas você quer acompanhar?</legend>
    <p id="interests-help" className="muted">Escolha de uma a três áreas. {selected.length}/3 selecionadas.</p>
    <div className="checkbox-grid">{interestAreas.map(area=><label className="check" key={area}>

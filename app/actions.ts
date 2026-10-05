@@ -24,7 +24,7 @@ export async function saveProfile(_:FormState,form:FormData):Promise<FormState>{
  const parsed=profileSchema.safeParse({
   company:form.get('company'),sector:form.get('sector'),size:form.get('size'),
   objective:form.get('objective'),business_model:form.get('business_model'),ai_level:form.get('ai_level'),
-  interests:form.getAll('interests'),email_opt_in:form.get('email_opt_in')==='on'
+  preferences:Object.fromEntries(['ambition','decision_role','experiment_time','adoption_limit'].map(key=>[key,form.get(key)])),interests:form.getAll('interests'),email_opt_in:form.get('email_opt_in')==='on'
  });
  if(!parsed.success)return {message:'Preencha as opções e selecione de uma a três áreas de interesse.'};
  if(isDemo())return {ok:true,message:'Preferências validadas. Nesta demonstração, seus dados não são salvos.'};
