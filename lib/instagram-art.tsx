@@ -28,7 +28,7 @@ export async function instagramArtwork(post:{title:string;source_name:string;rad
  const response=new ImageResponse(<div style={{display:'flex',position:'relative',width:'100%',height:'100%',background:photo?'#15142F':'#F7F6EF',color:photo?'#F7F6EF':'#15142F',fontFamily:'Space Grotesk'}}>
   {photo?<><img alt="Imagem da reportagem" src={photo} width={1080} height={1350} style={{position:'absolute',top:0,left:0}}/><div style={{display:'flex',position:'absolute',inset:0,background:'linear-gradient(180deg,rgba(21,20,47,.2) 0%,rgba(21,20,47,.05) 30%,rgba(21,20,47,.78) 58%,#15142F 89%)'}}/></>:<div style={{display:'flex',position:'absolute',right:-435,top:-390,width:950,height:950,border:'100px solid #DBFF4F',borderRadius:'50%'}} />}
   <div style={{display:'flex',position:'absolute',top:62,left:64,right:64,justifyContent:'space-between',alignItems:'center'}}>
-   <div style={{display:'flex',background:'#15142F',padding:'17px 22px',borderRadius:4}}><img alt="Ventura AI" src={`data:image/png;base64,${logo.toString('base64')}`} width={251} height={45}/></div>
+   <div style={{display:'flex',background:'#000000',padding:'17px 22px',borderRadius:4}}><img alt="Ventura AI" src={`data:image/png;base64,${logo.toString('base64')}`} width={251} height={45}/></div>
    <div style={{display:'flex',fontSize:22}}>RADAR / {date.toUpperCase()}</div>
   </div>
   <div style={{display:'flex',flexDirection:'column',position:'absolute',left:70,right:70,bottom:235}}>
