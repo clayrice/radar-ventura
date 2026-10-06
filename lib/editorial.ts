@@ -34,15 +34,9 @@ export function editorialDecision(output:z.infer<typeof classificationSchema>,so
  if(!output.publish||output.business_relevance<40||Math.max(output.reader_interest,output.business_relevance)<50)return {publish:false,reason:'Baixa relevância ou interesse humano'};
  return {publish:true,reason:null};
 }
-export function editorialFallbackDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
- const required=editorialRequirement(output,sourceKind,excerpt);if(required)return required;
- if(output.business_relevance<25||output.reader_interest<35)return {publish:false,reason:'Interesse insuficiente para completar a edição'};
- return {publish:true,reason:'Seleção complementar para manter a edição diversa'};
-}
-export function editorialCompletionDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
- const required=editorialRequirement(output,sourceKind,excerpt);if(required)return required;
- return {publish:true,reason:'Melhor matéria elegível para completar a edição diária'};
-}
+// All selection paths share the same requirements; quota completion cannot bypass rejection.
+export const editorialFallbackDecision=editorialDecision;
+export const editorialCompletionDecision=editorialDecision;
 export function selectDailyCandidates<T extends {source_id:string;published_at:string}>(articles:T[],limit=10){
  const selected:T[]=[];const perSource=new Map<string,number>();
  for(const article of articles){const count=perSource.get(article.source_id)||0;if(count>=2)continue;selected.push(article);perSource.set(article.source_id,count+1);if(selected.length>=limit)break;}

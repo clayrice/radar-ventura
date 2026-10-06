@@ -8,7 +8,7 @@ import type {Article} from './types';
 
 type Db=ReturnType<typeof adminDb>;
 type Post={id:string;article_id:string;account_id:string;radar_date:string;title:string;caption:string;source_name:string;status:string;image_url:string|null;container_id:string|null;attempts:number};
-type MetaResult={id?:string;username?:string;status_code?:string};
+type MetaResult={id?:string;username?:string;status_code?:string;data?:{permission?:string;status?:string}[]};
 function configuration(){
  const account=process.env.INSTAGRAM_ACCOUNT_ID;
  const token=process.env.INSTAGRAM_ACCESS_TOKEN;
@@ -20,17 +20,24 @@ async function meta(path:string,method:'GET'|'POST'='GET',values:Record<string,s
  const {token,version}=configuration();
  const url=new URL(`https://graph.instagram.com/${version}/${path}`);
  if(method==='GET')for(const [key,value] of Object.entries(values))url.searchParams.set(key,value);
- const response=await fetch(url,{method,headers:{Authorization:`Bearer ${token}`},body:method==='POST'?new URLSearchParams(values):undefined,signal:AbortSignal.timeout(12000),redirect:'error'});
- const payload=await response.json();
- // Do not record provider messages which might contain tokens or signed URLs.
- if(!response.ok)throw new Error(`Instagram HTTP ${response.status}; code ${Number(payload.error?.code)||0}`);
- return payload;
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   const response=await fetch(url,{method,headers:{Authorization:`Bearer ${token}`},body:method==='POST'?new URLSearchParams(values):undefined,signal:AbortSignal.timeout(method==='GET'?5000:12000),redirect:'error'});
+   const payload=await response.json();
+   if(!response.ok){
+    if(method==='GET'&&(response.status===429||response.status>=500)&&attempt<2){await new Promise(resolve=>setTimeout(resolve,500*2**attempt));continue;}
+    throw new Error(`Instagram HTTP ${response.status}; code ${Number(payload.error?.code)||0}`);
+   }
+   return payload;
+  }catch(error){if(method!=='GET'||attempt===2||error instanceof Error&&error.message.startsWith('Instagram HTTP'))throw error;}
+ }
+ throw new Error('Falha de leitura Instagram');
 }
 async function update(db:Db,id:string,values:Record<string,unknown>){checked(await db.from('instagram_posts').update(values).eq('id',id));}
 async function processPost(db:Db,post:Post,deadline:number){
  const article=checked(await db.from('articles').select('status').eq('id',post.article_id).maybeSingle());
  if(article?.status!=='published'){await update(db,post.id,{status:'cancelled'});return false;}
- if(post.status==='creating'){await update(db,post.id,{status:'review',last_error:'Criação interrompida; conferir antes de retomar'});return false;}
+ if(post.status==='creating'){await update(db,post.id,{status:'queued',last_error:'Criação interrompida antes da publicação; nova tentativa segura'});post={...post,status:'queued'};}
  if(post.status==='queued'){
   if(post.attempts>=3){await update(db,post.id,{status:'failed',last_error:'Limite de tentativas atingido'});return false;}
   await update(db,post.id,{attempts:post.attempts+1});
@@ -47,7 +54,7 @@ async function processPost(db:Db,post:Post,deadline:number){
   if(!container.id)throw new Error('Instagram não retornou o contêiner');
   // Persist creation before publishing. A process interruption must not recreate a post.
   await update(db,post.id,{status:'processing',container_id:container.id,last_error:null});
-  post={...post,status:'processing',container_id:container.id};
+  post={...post,status:'processing',attempts:post.attempts+1,container_id:container.id};
  }
  if(!post.container_id)return false;
  for(let poll=0;poll<5&&Date.now()<deadline-15000;poll++){
@@ -55,7 +62,7 @@ async function processPost(db:Db,post:Post,deadline:number){
   const action=instagramPublishAction(post.status,container.status_code||'');
   if(action==='confirm'){await update(db,post.id,{status:'published',published_at:new Date().toISOString(),last_error:null});return true;}
   if(action==='review'){await update(db,post.id,{status:'review',last_error:'Publicação sem confirmação; conferir no Instagram antes de retomar'});return false;}
-  if(action==='fail'){await update(db,post.id,{status:'failed',last_error:'Contêiner recusado ou expirado'});return false;}
+  if(action==='fail'){await update(db,post.id,{status:post.attempts<3?'queued':'failed',container_id:null,last_error:'Contêiner recusado ou expirado; retentar criação antes de publicar'});return false;}
   if(action==='publish'){
    // Freeze this state BEFORE the external side effect. Never automatically repeat media_publish.
    await update(db,post.id,{status:'publishing'});
@@ -68,34 +75,39 @@ async function processPost(db:Db,post:Post,deadline:number){
  return false;
 }
 
-export async function runInstagram(deadline=Date.now()+75000){
+export async function runInstagram(deadline=Date.now()+75000,date=radarDate()){
  if(process.env.INSTAGRAM_PUBLISH_ENABLED!=='true')return {instagram:'disabled'};
- const {account}=configuration();const db=adminDb();const owner=randomUUID();
+ const db=adminDb();const owner=randomUUID();
  if(!checked(await db.rpc('acquire_job',{lock_name:'instagram',lock_owner:owner})))return {instagram:'already_running'};
  let published=0,failures=0;
  let run:{id:string}|null=null;
  try{
-  run=checked(await db.from('job_runs').insert({job:'instagram'}).select('id').single());
+  run=checked(await db.from('job_runs').insert({job:'instagram',metrics:{radar_date:date}}).select('id').single());
+  const {account}=configuration();
   const identity=await meta(account,'GET',{fields:'id,username'});
   if(identity.username?.toLowerCase()!=='ventura_ai')throw new Error('A conta conectada não é @ventura_ai');
   // Starting at today's date avoids automatically publishing a historical backlog.
-  const articles=checked(await db.from('articles').select('*').eq('status','published').eq('radar_date',radarDate()).order('editorial_score',{ascending:false}).order('published_at',{ascending:false}).limit(3)) as Article[];
-  if(articles.length!==3){if(run)checked(await db.from('job_runs').update({status:'completed',finished_at:new Date().toISOString(),metrics:{instagram:'waiting_for_three_articles'}}).eq('id',run.id));return {instagram:'waiting_for_three_articles'};}
+  const articles=checked(await db.from('articles').select('*').eq('status','published').eq('radar_date',date).order('editorial_score',{ascending:false}).order('published_at',{ascending:false})) as Article[];
+  if(articles.length!==3){if(run)checked(await db.from('job_runs').update({status:'pending',finished_at:new Date().toISOString(),metrics:{radar_date:date,instagram:'waiting_for_three_articles',portal_published:articles.length}}).eq('id',run.id));return {instagram:'waiting_for_three_articles'};}
   for(const [index,article] of articles.entries()){
    const existing=checked(await db.from('instagram_posts').select('id').eq('article_id',article.id).eq('account_id',account).maybeSingle());
    if(existing)continue;
-   const occupied=checked(await db.from('instagram_posts').select('id').eq('account_id',account).eq('radar_date',radarDate()).eq('slot',index+1).maybeSingle());
+   const occupied=checked(await db.from('instagram_posts').select('id').eq('account_id',account).eq('radar_date',date).eq('slot',index+1).maybeSingle());
    if(occupied)continue;
    try{const draft=instagramDraft(article);checked(await db.from('instagram_posts').upsert({...draft,article_id:article.id,account_id:account,slot:index+1},{onConflict:'article_id,account_id',ignoreDuplicates:true}));}
-   catch{failures++;}
+   catch{failures++;checked(await db.from('job_runs').update({error:`Legenda ou capa inválida para artigo ${article.id}`}).eq('id',run!.id));}
   }
-  const pending=checked(await db.from('instagram_posts').select('*').eq('account_id',account).in('status',['queued','creating','processing','publishing']).order('radar_date').order('created_at').limit(3)) as Post[];
+  const pending=checked(await db.from('instagram_posts').select('*').eq('account_id',account).eq('radar_date',date).in('status',['queued','creating','processing','publishing','review']).order('radar_date').order('created_at').limit(3)) as Post[];
   for(const post of pending){if(Date.now()>deadline-20000)break;
    try{if(await processPost(db,post,deadline))published++;}
-   catch(error){failures++;const latest=checked(await db.from('instagram_posts').select('status').eq('id',post.id).single());await update(db,post.id,{status:['creating','publishing'].includes(latest?.status||'')?'review':latest?.status||'review',last_error:error instanceof Error?error.message:'Falha de publicação'});}
+   catch(error){failures++;const latest=checked(await db.from('instagram_posts').select('status').eq('id',post.id).single());await update(db,post.id,{status:latest?.status==='creating'?'queued':latest?.status||'review',last_error:error instanceof Error?error.message:'Falha de publicação'});}
   }
-  const metrics={instagram_published:published,instagram_failures:failures};
-  if(run)checked(await db.from('job_runs').update({status:'completed',finished_at:new Date().toISOString(),metrics}).eq('id',run.id));
+  const rows=checked(await db.from('instagram_posts').select('article_id,status').eq('account_id',account).eq('radar_date',date))||[];
+  const ids=new Set(articles.map(a=>a.id));
+  const confirmed=rows.filter(p=>p.status==='published'&&ids.has(p.article_id)).length;
+  const complete=confirmed===3&&rows.length===3;
+  const metrics={radar_date:date,instagram:complete?'completed':'pending',instagram_published:confirmed,instagram_newly_published:published,instagram_pending:3-confirmed,instagram_review:rows.filter(p=>['failed','review','cancelled'].includes(p.status)).length,instagram_failures:failures};
+  if(run)checked(await db.from('job_runs').update({status:complete?'completed':'pending',finished_at:new Date().toISOString(),metrics}).eq('id',run.id));
   return metrics;
  }catch(error){
   if(run)checked(await db.from('job_runs').update({status:'failed',finished_at:new Date().toISOString(),error:error instanceof Error?error.message:'Falha Instagram'}).eq('id',run.id));

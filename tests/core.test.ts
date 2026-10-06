@@ -35,12 +35,12 @@ test('editorial exige fonte verificável e permite lançamentos úteis',()=>{
  assert.equal(editorialCompletionDecision({...output,publish:false},'primary',excerpt).publish,false);
  assert.equal(editorialDecision({...output,category:'Big launches',launch_importance:84},'press',excerpt).publish,true);
  assert.equal(editorialDecision({...output,category:'Big launches',launch_importance:95},'analysis',excerpt).publish,true);
- assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:30,reader_interest:40},'press',excerpt).publish,true);
+ assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:30,reader_interest:40},'press',excerpt).publish,false);
  assert.equal(editorialFallbackDecision({...output,publish:false,business_relevance:24,reader_interest:80},'press',excerpt).publish,false);
- assert.equal(editorialFallbackDecision({...output,publish:false,category:'Big launches',launch_importance:74},'press',excerpt).publish,true);
- assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:5,reader_interest:10},'press',excerpt).publish,true);
- assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:30,reader_interest:25},'press',excerpt).publish,true);
- assert.equal(editorialCompletionDecision({...output,publish:false,category:'Big launches',launch_importance:30},'press',excerpt).publish,true);
+ assert.equal(editorialFallbackDecision({...output,publish:false,category:'Big launches',launch_importance:74},'press',excerpt).publish,false);
+ assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:5,reader_interest:10},'press',excerpt).publish,false);
+ assert.equal(editorialCompletionDecision({...output,publish:false,business_relevance:30,reader_interest:25},'press',excerpt).publish,false);
+ assert.equal(editorialCompletionDecision({...output,publish:false,category:'Big launches',launch_importance:30},'press',excerpt).publish,false);
 });
 test('seleção para análise evita que uma única fonte domine as chamadas diárias',()=>{
  const candidates=[

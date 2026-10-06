@@ -1,45 +1,22 @@
 import {weeklyInstructions} from './weekly-instructions';
 import 'server-only';
-import Parser from 'rss-parser';
-import {feedCover,pageCover} from './news-images';
-import {editorialInstructions,editorialDecision,editorialFallbackDecision,editorialCompletionDecision,selectDailyCandidates,normalizeRadarSummary} from './editorial';
+import {pageCover} from './news-images';
 import {randomUUID} from 'node:crypto';
 import {adminDb,checked,isDemo} from './db';
 import {generate} from './ai';
-import {classificationSchema,editionSchema,weekStart} from './validation';
-import {feedAllowlist,sourceArticleUrl,titleKey,validateEdition,matchPartners,retryDelivery} from './pipeline-core';
+import {editionSchema,weekStart} from './validation';
+import {feedAllowlist,validateEdition,matchPartners,retryDelivery} from './pipeline-core';
 import {editionEmail} from './email-template';
 import {unsubscribeToken} from './unsubscribe';
 import {roadmapOutput,roadmapInput} from './roadmap-schema';
 import {radarDate} from './radar-dates';
 import type {Article,Edition,Partner,Profile} from './types';
 import {runInstagram} from './instagram';
+import {fillRadar,radarCounts} from './daily-radar';
+import {editionOutcome} from './daily-run-core';
 type Db=ReturnType<typeof adminDb>;
 const model=()=>process.env.OPENAI_MODEL||'gpt-4.1-mini';
-const minimumDailyArticles=3;
 const err=(e:unknown)=>e instanceof Error?e.message.slice(0,300):'Unknown failure';
-const parser=new Parser<Record<string,unknown>,{mediaContent?:{$?:{url?:string;type?:string;medium?:string};'media:credit'?:string[]}[];mediaThumbnail?:{$?:{url?:string;type?:string;medium?:string};'media:credit'?:string[]}[]}>({customFields:{item:[['media:content','mediaContent',{keepArray:true}],['media:thumbnail','mediaThumbnail',{keepArray:true}]]}});
-
-async function boundedFeed(url:string){
- const res=await fetch(url,{signal:AbortSignal.timeout(12000),redirect:'error',headers:{'User-Agent':'VenturaRadar/0.1 (+https://ventura-ai.com)'}});
- if(!res.ok)throw new Error(`Feed HTTP ${res.status}`);
- if(!res.body)throw new Error('Empty feed');
- const reader=res.body.getReader();const decoder=new TextDecoder();let xml='';let bytes=0;
- try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>2_000_000)throw new Error('Feed exceeds 2MB limit');xml+=decoder.decode(value,{stream:true});}xml+=decoder.decode();}finally{await reader.cancel();}
- if(/<!DOCTYPE|<!ENTITY/i.test(xml))throw new Error('Unsupported XML declaration');return parser.parseString(xml);
-}
-async function ingest(db:Db){let added=0;let errors=0;const sources=checked(await db.from('sources').select('*').eq('enabled',true).order('last_fetched_at',{ascending:true,nullsFirst:true}));
- for(let offset=0;offset<(sources||[]).length;offset+=4){await Promise.all((sources||[]).slice(offset,offset+4).map(async source=>{const allowed=feedAllowlist[source.id];if(!allowed||allowed.url!==source.feed_url)return;
- try{const feed=await boundedFeed(allowed.url);for(const item of feed.items.slice(0,10)){if(!item.link||!item.title)continue;const url=sourceArticleUrl(item.link,source.id);const published=new Date(item.isoDate||item.pubDate||'');if(!url||!Number.isFinite(published.getTime())||published.getTime()>Date.now()+60000||published.getTime()<Date.now()-14*86400000)continue;
- const excerpt=(item.contentSnippet||item.summary||item.content||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,5000);
- if(excerpt.length<120)continue;
- if(source.kind==='discovery'||source.kind==='primary'){const primaryLinks=[...new Set([...(item.content||'').matchAll(/href=[\"'](https:\/\/[^\"']+)[\"']/g)].map(m=>m[1]).filter(link=>Object.values(feedAllowlist).some(f=>f.kind==='primary'&&f.hosts.includes(new URL(link).hostname))))].slice(0,10);checked(await db.from('discoveries').upsert({source_id:source.id,source_url:url,title:item.title,excerpt,primary_links:primaryLinks},{onConflict:'source_url',ignoreDuplicates:true}));continue;}
- const {error}=await db.from('articles').insert({...feedCover(item),source_id:source.id,source_kind:source.kind,source_name:source.name,source_url:url,title:item.title.slice(0,180),title_key:titleKey(item.title),excerpt,published_at:published.toISOString()});
- if(error&&error.code!=='23505')throw error;if(!error)added++;
- }checked(await db.from('sources').update({last_fetched_at:new Date().toISOString(),last_error:null}).eq('id',source.id));
- }catch(e){errors++;checked(await db.from('sources').update({last_error:err(e)}).eq('id',source.id));}}));}
- return {added,source_errors:errors};
-}
 async function hydratePublishedCovers(db:Db,deadline:number){
  const recent=new Date(Date.now()-14*86400000).toISOString();
  const rows=checked(await db.from('articles').select('id,source_id,source_url').eq('status','published').is('cover_url',null).gte('published_at',recent).order('radar_date',{ascending:false,nullsFirst:false}).order('published_at',{ascending:false}).limit(8));
@@ -50,21 +27,6 @@ async function hydratePublishedCovers(db:Db,deadline:number){
   hydrated+=results.filter(value=>value===true).length;failures+=results.filter(value=>value===null).length;
  }
  return {covers_hydrated:hydrated,cover_failures:failures};
-}
-async function classify(db:Db,deadline:number){const today=radarDate();const existing=checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',today));let published=0;let recovered=0;let failures=0;const flexible:{id:string;score:number}[]=[];const completion:{id:string;score:number}[]=[];const recent=new Date(Date.now()-14*86400000).toISOString();
- const malformed=checked(await db.from('articles').select('*').eq('status','rejected').eq('last_error','Texto precisa de três a quatro parágrafos').gte('published_at',recent).order('editorial_score',{ascending:false}).order('published_at',{ascending:false}).limit(12));
- for(const a of malformed||[]){if((existing?.length||0)+published>=minimumDailyArticles)break;const summary=normalizeRadarSummary(a.summary);const score=a.editorial_score||0;const output={title:a.title,summary,brazil_impact:a.brazil_impact||'',category:a.category,sectors:a.sectors||[],publish:false,human_angle:a.human_angle||'',perspective_evidence:a.perspective_evidence||'',business_relevance:score,reader_interest:score,launch_importance:100};if(!editorialCompletionDecision(output,a.source_kind,a.excerpt).publish)continue;checked(await db.from('articles').update({summary,status:'published',radar_date:today,last_error:null}).eq('id',a.id));published++;recovered++;}
- const pool=checked(await db.from('articles').select('*').in('status',['queued','rejected']).in('source_kind',['press','analysis']).lt('attempts',3).gte('published_at',recent).order('published_at',{ascending:false}).limit(30));const candidates=selectDailyCandidates(pool||[],10);
- for(const a of candidates||[]){if(Date.now()>deadline||(existing?.length||0)+published>=minimumDailyArticles)break;checked(await db.from('articles').update({attempts:a.attempts+1}).eq('id',a.id));
- try{const generated=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:a.excerpt,source:a.source_name});const output={...generated,summary:normalizeRadarSummary(generated.summary)};
- const decision=editorialDecision(output,a.source_kind,a.excerpt);
- checked(await db.from('articles').update({title:output.title,summary:output.summary,brazil_impact:output.brazil_impact,category:output.category,sectors:output.sectors,human_angle:output.human_angle,perspective_attribution:a.source_name,perspective_evidence:output.perspective_evidence,editorial_score:Math.round((output.business_relevance+output.reader_interest)/2),status:decision.publish?'published':'rejected',radar_date:decision.publish?today:null,model:model(),last_error:decision.reason}).eq('id',a.id));if(decision.publish)published++;
- else {const score=output.business_relevance+output.reader_interest;if(editorialFallbackDecision(output,a.source_kind,a.excerpt).publish)flexible.push({id:a.id,score});else if(editorialCompletionDecision(output,a.source_kind,a.excerpt).publish)completion.push({id:a.id,score});}
-
- }catch(e){failures++;checked(await db.from('articles').update({last_error:err(e),status:a.attempts>=2?'review':'queued'}).eq('id',a.id));}}
- let flexiblePublished=0;const needed=()=>Math.max(0,minimumDailyArticles-(existing?.length||0)-published);for(const candidate of flexible.sort((a,b)=>b.score-a.score).slice(0,needed())){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;flexiblePublished++;}
- let completionPublished=0;for(const candidate of completion.sort((a,b)=>b.score-a.score).slice(0,needed())){checked(await db.from('articles').update({status:'published',radar_date:today,last_error:null}).eq('id',candidate.id));published++;completionPublished++;}
- return {published,recovered_published:recovered,flexible_published:flexiblePublished,completion_published:completionPublished,classification_failures:failures};
 }
 async function generateWeekly(db:Db,deadline:number){
  const week=weekStart();checked(await db.rpc('enqueue_editions',{edition_week:week}));
@@ -117,10 +79,48 @@ async function generateRoadmaps(db:Db,deadline:number){
  return {roadmaps_generated:1};
  }catch(e){checked(await db.from('roadmaps').update({status:row.attempts>=2?'failed':'queued',last_error:err(e)}).eq('id',row.id).eq('status','queued'));return {roadmap_failures:1};}
 }
-export async function runDaily(){if(isDemo())return {skipped:'demo_mode'};
- const db=adminDb();const owner=randomUUID();const acquired=checked(await db.rpc('acquire_job',{lock_name:'daily',lock_owner:owner}));if(!acquired)return {skipped:'already_running'};
- const run=checked(await db.from('job_runs').insert({job:'daily'}).select('id').single());if(!run)throw new Error('Could not create job run');const deadline=Date.now()+190000;
- try{checked(await db.from('subscriptions').update({status:'inactive'}).eq('status','active').lte('expires_at',new Date().toISOString()));checked(await db.from('partners').update({active:false}).eq('active',true).lte('expires_at',new Date().toISOString()));const metrics={...await ingest(db),...await classify(db,deadline),...await hydratePublishedCovers(db,deadline),...await generateWeekly(db,deadline),...await generateRoadmaps(db,deadline),...await deliver(db,deadline),...await runInstagram(deadline+75000).catch(()=>({instagram:'failed',instagram_failures:1}))};checked(await db.from('job_runs').update({status:'completed',finished_at:new Date().toISOString(),metrics}).eq('id',run.id));return metrics;
- }catch(error){checked(await db.from('job_runs').update({status:'failed',finished_at:new Date().toISOString(),error:err(error)}).eq('id',run.id));throw error;
+export async function runDaily(){
+ if(isDemo())return {status:'blocked',reason:'demo_mode'};
+ const db=adminDb();const owner=randomUUID();
+ if(!checked(await db.rpc('acquire_job',{lock_name:'daily',lock_owner:owner})))return {status:'pending',reason:'already_running'};
+ let run:{id:string}|null=null;let date=radarDate();let attempts=0;
+ const deadline=Date.now()+255000;let metrics:Record<string,unknown>={};
+ try{
+  // A killed invocation remains visibly interrupted, never completed.
+  checked(await db.from('job_runs').update({status:'interrupted',finished_at:new Date().toISOString(),error:'Worker interrompido; retomado pela próxima execução'}).eq('job','daily').eq('status','running'));
+  checked(await db.from('radar_editions').upsert({radar_date:date},{onConflict:'radar_date',ignoreDuplicates:true}));
+  const edition=checked(await db.from('radar_editions').select('*').neq('status','completed').lte('next_attempt_at',new Date().toISOString()).order('next_attempt_at').order('radar_date').limit(1).maybeSingle());
+  if(!edition){const current=checked(await db.from('radar_editions').select('status,last_reason,metrics').eq('radar_date',date).single());return {status:current?.status||'pending',reason:current?.last_reason||'retry_scheduled',...current?.metrics};}
+  date=edition.radar_date;attempts=edition.attempts+1;
+  run=checked(await db.from('job_runs').insert({job:'daily',metrics:{radar_date:date,attempt:attempts}}).select('id').single());
+  checked(await db.from('radar_editions').update({attempts,updated_at:new Date().toISOString()}).eq('radar_date',date));
+  const progress=async(data:Record<string,unknown>)=>{
+   metrics={...metrics,...data,radar_date:date,attempt:attempts};
+   checked(await db.from('job_runs').update({metrics}).eq('id',run!.id));
+   checked(await db.from('radar_editions').update({metrics,search_stage:data.search_stage??edition.search_stage,updated_at:new Date().toISOString(),last_reason:data.reason||'processing'}).eq('radar_date',date));
+  };
+  checked(await db.from('subscriptions').update({status:'inactive'}).eq('status','active').lte('expires_at',new Date().toISOString()));
+  checked(await db.from('partners').update({active:false}).eq('active',true).lte('expires_at',new Date().toISOString()));
+  const radar=await fillRadar(db,date,edition.search_stage,deadline-80000,progress);
+  const counts=await radarCounts(db,date);
+  let instagram:Record<string,unknown>={instagram:'waiting_for_three_articles',instagram_published:0};
+  if(counts.published===3&&Date.now()<deadline-20000){
+   instagram=await runInstagram(deadline,date).catch(()=>({instagram:'failed',instagram_published:0,instagram_failures:1}));
+  }
+  const outcome=editionOutcome(counts.published,Number(instagram.instagram_published)||0,counts.published===3?String(instagram.instagram||'instagram_pending'):radar.reason);
+  metrics={...metrics,...counts,...instagram,radar_date:date,attempt:attempts,status:outcome.status,reason:outcome.reason};
+  const next=new Date(Date.now()+(radar.reason==='news_daily_budget_exhausted'?3600000:300000)).toISOString();
+  checked(await db.from('radar_editions').update({status:outcome.status,search_stage:radar.stage,metrics,last_reason:outcome.reason,next_attempt_at:next,updated_at:new Date().toISOString()}).eq('radar_date',date));
+  checked(await db.from('job_runs').update({status:outcome.status,finished_at:new Date().toISOString(),metrics}).eq('id',run!.id));
+  console.info('radar_daily',JSON.stringify(metrics));
+  // Customer work has its own budget and cannot turn an incomplete edition into success.
+  if(Date.now()<deadline-55000){
+   try{await hydratePublishedCovers(db,deadline-10000);await generateWeekly(db,deadline-45000);await generateRoadmaps(db,deadline-45000);await deliver(db,deadline-20000);}catch{console.error('radar_auxiliary_jobs_failed');}
+  }
+  return metrics;
+ }catch(error){
+  if(run)checked(await db.from('job_runs').update({status:'failed',finished_at:new Date().toISOString(),metrics,error:err(error)}).eq('id',run.id));
+  checked(await db.from('radar_editions').update({status:'pending',last_reason:'worker_failure',next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq('radar_date',date));
+  throw error;
  }finally{checked(await db.rpc('release_job',{lock_name:'daily',lock_owner:owner}));}
 }
