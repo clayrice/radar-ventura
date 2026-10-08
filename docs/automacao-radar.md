@@ -1,6 +1,6 @@
 # Execução diária do Radar Ventura
 
-A edição só fica `completed` quando há exatamente três artigos publicados e três posts correspondentes confirmados no Instagram. A resposta HTTP é 200 apenas nesse estado. Pendências retornam 202; falhas inesperadas retornam 500. O banco impede uma quarta notícia na mesma data, inclusive em escritas concorrentes. Edições históricas são preservadas.
+A edição só fica `completed` quando há exatamente três artigos publicados, pelo menos dois com arte e três posts correspondentes confirmados no Instagram. A resposta HTTP é 200 apenas nesse estado. Pendências retornam 202; falhas inesperadas retornam 500. O banco impede uma quarta notícia na mesma data, inclusive em escritas concorrentes. Edições históricas são preservadas.
 
 `radar_editions` guarda a data, etapa da busca, tentativas, próxima tentativa, métricas e motivo de parada. `radar_candidates` vincula os candidatos à edição. `job_runs` registra cada tentativa. Uma interrupção não marca sucesso; a próxima chamada identifica o job interrompido e retoma. As datas usam São Paulo. Edições pendentes alternam por próxima tentativa para não impedir a edição seguinte.
 
@@ -14,7 +14,7 @@ O agendamento da Vercel tem oito chamadas diárias: 06h, 07h, 08h, 09h, 11h, 14h
 
 ## Instagram
 
-Aplicar `011_instagram.sql` e `014_daily_completion.sql` antes do deploy. Configurar em produção `INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_API_VERSION` e `INSTAGRAM_PUBLISH_ENABLED=true` depois da autorização Meta. O app usa Instagram Login; confirmar `instagram_business_basic` e `instagram_business_content_publish` e a identidade `ventura_ai`. Não usar sessão web como token da API.
+Aplicar `011_instagram.sql`, `014_daily_completion.sql` e `015_image_completion.sql` antes do deploy. Configurar em produção `INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_API_VERSION` e `INSTAGRAM_PUBLISH_ENABLED=true` depois da autorização Meta. O app usa Instagram Login; confirmar `instagram_business_basic` e `instagram_business_content_publish` e a identidade `ventura_ai`. Não usar sessão web como token da API.
 
 A fila tem três slots por conta/data e unicidade por artigo. As capas usam logo, fontes e cores existentes. O total publicado inclui tentativas anteriores. Posts de outras datas não preenchem a meta. Leituras da Meta têm até três tentativas para rede/429/5xx. Uma criação de contêiner interrompida pode ser repetida, pois criar não publica. `media_publish` nunca é repetido após retorno ambíguo: a rotina consulta o estado do contêiner e confirma `PUBLISHED`, ou deixa em revisão. Isso evita duplicação após timeout. Contêiner recusado/expirado antes da publicação pode ser recriado até o limite de tentativas.
 
@@ -29,3 +29,15 @@ Se uma legenda não cabe, o erro fica no job, sem truncar fatos ou inventar cont
 5. Verificar `job_runs.metrics` e `radar_editions`: somente depois dessas confirmações a edição pode constar como concluída.
 
 Diagnóstico de 06/10/2026 antes da alteração: uma notícia publicada; job diário marcado completed; tabela instagram_posts e variáveis Instagram ausentes em produção. A conta Meta acessível não tinha apps cadastrados. A ativação real depende da criação/autorização desse app.
+
+## Recuperação de imagens
+
+Antes de confirmar a edição e iniciar o Instagram, o fluxo tenta criar uma arte para cada matéria sem capa. Usa o gerador tipográfico existente, com logo Ventura, Space Grotesk e as cores da marca. Cada matéria tem até duas tentativas por execução. O arquivo recebe um caminho estável no armazenamento, permitindo retomar sem duplicar a arte. A próxima execução repete a recuperação das capas ainda ausentes.
+
+A edição com zero ou uma imagem fica pendente com `publication_images_missing`. Os indicadores `articles_with_images`, `articles_without_images`, `cover_attempts`, `cover_failures` e `covers_recovered` mostram o resultado. O banco também recusa marcar a edição como concluída sem três matérias, duas capas e três posts com arte confirmados para a mesma conta. Falhas de recuperação são erros de publicação, mesmo quando o texto já aparece no portal.
+
+## Limite de pontualidade e ativação
+
+O horário principal preservado é 06h em São Paulo (09h UTC). As chamadas posteriores recuperam pendências. O plano Hobby permite atrasos de até 59 minutos; para execução no minuto programado é necessário Pro/Enterprise ou um agendador externo. Nenhuma alteração de plano foi realizada. O horário é o início do processamento: coleta, geração e confirmação pela Meta levam tempo, e este fluxo não promete publicação simultânea às 06h.
+
+Para implantação, confirmar o projeto Vercel de `clayrice/radar-ventura`, aplicar a migração 015, disponibilizar as credenciais de produção e habilitar a publicação Instagram. Validar o plano do agendador antes de assumir pontualidade. Os testes locais não ativam agendamentos nem comprovam posts reais.

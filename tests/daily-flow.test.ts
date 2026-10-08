@@ -54,3 +54,25 @@ test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar qu
  assert.equal(interrupted.reason,'time_budget_exhausted');assert.equal(await flow.portalCount(short,date),0);
  }finally{delete (globalThis as any).__radarGenerate;await rm(dir,{recursive:true,force:true});}
 });
+
+test('recupera capas com retry e não recria imagens já persistidas',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'radar-covers-'));const bundle=join(dir,'covers.cjs');
+ try{
+ await build({entryPoints:[new URL('../lib/radar-covers.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'art-boundary',setup(b){
+  b.onResolve({filter:/^(server-only|\.\/db|\.\/instagram-art)$/},args=>({path:args.path,namespace:'cover-test'}));
+  b.onLoad({filter:/.*/,namespace:'cover-test'},args=>({contents:args.path==='server-only'?'':args.path==='./db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:`export const instagramArtwork=async p=>globalThis.__coverArt(p);`,loader:'js'}));
+ }}]});
+ const {recoverEditionCovers}=createRequire(import.meta.url)(bundle);
+ const date='2026-10-08';const db:any=database(['a','b','c'].map(id=>({...article(id,0,'published'),radar_date:date,cover_url:null})));
+ let uploads=0;db.storage={from:()=>({upload:async()=>{uploads++;return {error:null};},getPublicUrl:(path:string)=>({data:{publicUrl:'https://example.com/'+path}})})};
+ const calls:Record<string,number>={};
+ (globalThis as any).__coverArt=async(p:Row)=>{calls[p.id]=(calls[p.id]||0)+1;if(p.id==='c'||p.id==='b'&&calls[p.id]===1)throw Error('renderer failed');return Buffer.from('jpeg');};
+ const first=await recoverEditionCovers(db,date,Date.now()+60000);
+ assert.equal(first.articles_with_images,2);assert.equal(first.articles_without_images,1);
+ assert.equal(first.cover_attempts,5);assert.equal(first.cover_failures,3);assert.equal(uploads,2);
+ (globalThis as any).__coverArt=async()=>Buffer.from('jpeg');
+ const second=await recoverEditionCovers(db,date,Date.now()+60000);
+ assert.equal(second.articles_with_images,3);assert.equal(second.cover_attempts,1);
+ assert.equal((await recoverEditionCovers(db,date,Date.now()+60000)).cover_attempts,0);
+ }finally{delete (globalThis as any).__coverArt;await rm(dir,{recursive:true,force:true});}
+});

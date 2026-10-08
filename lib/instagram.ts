@@ -102,9 +102,9 @@ export async function runInstagram(deadline=Date.now()+75000,date=radarDate()){
    try{if(await processPost(db,post,deadline))published++;}
    catch(error){failures++;const latest=checked(await db.from('instagram_posts').select('status').eq('id',post.id).single());await update(db,post.id,{status:latest?.status==='creating'?'queued':latest?.status||'review',last_error:error instanceof Error?error.message:'Falha de publicação'});}
   }
-  const rows=checked(await db.from('instagram_posts').select('article_id,status').eq('account_id',account).eq('radar_date',date))||[];
+  const rows=checked(await db.from('instagram_posts').select('article_id,status,image_url').eq('account_id',account).eq('radar_date',date))||[];
   const ids=new Set(articles.map(a=>a.id));
-  const confirmed=rows.filter(p=>p.status==='published'&&ids.has(p.article_id)).length;
+  const confirmed=rows.filter(p=>p.status==='published'&&p.image_url?.trim()&&ids.has(p.article_id)).length;
   const complete=confirmed===3&&rows.length===3;
   const metrics={radar_date:date,instagram:complete?'completed':'pending',instagram_published:confirmed,instagram_newly_published:published,instagram_pending:3-confirmed,instagram_review:rows.filter(p=>['failed','review','cancelled'].includes(p.status)).length,instagram_failures:failures};
   if(run)checked(await db.from('job_runs').update({status:complete?'completed':'pending',finished_at:new Date().toISOString(),metrics}).eq('id',run.id));

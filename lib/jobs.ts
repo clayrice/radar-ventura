@@ -13,6 +13,7 @@ import {radarDate} from './radar-dates';
 import type {Article,Edition,Partner,Profile} from './types';
 import {runInstagram} from './instagram';
 import {fillRadar,radarCounts} from './daily-radar';
+import {recoverEditionCovers} from './radar-covers';
 import {editionOutcome} from './daily-run-core';
 type Db=ReturnType<typeof adminDb>;
 const model=()=>process.env.OPENAI_MODEL||'gpt-4.1-mini';
@@ -102,13 +103,14 @@ export async function runDaily(){
   checked(await db.from('subscriptions').update({status:'inactive'}).eq('status','active').lte('expires_at',new Date().toISOString()));
   checked(await db.from('partners').update({active:false}).eq('active',true).lte('expires_at',new Date().toISOString()));
   const radar=await fillRadar(db,date,edition.search_stage,deadline-80000,progress);
+  const covers=await recoverEditionCovers(db,date,deadline-85000);
   const counts=await radarCounts(db,date);
   let instagram:Record<string,unknown>={instagram:'waiting_for_three_articles',instagram_published:0};
-  if(counts.published===3&&Date.now()<deadline-20000){
+  if(counts.published===3&&covers.articles_with_images>=2&&Date.now()<deadline-20000){
    instagram=await runInstagram(deadline,date).catch(()=>({instagram:'failed',instagram_published:0,instagram_failures:1}));
   }
-  const outcome=editionOutcome(counts.published,Number(instagram.instagram_published)||0,counts.published===3?String(instagram.instagram||'instagram_pending'):radar.reason);
-  metrics={...metrics,...counts,...instagram,radar_date:date,attempt:attempts,status:outcome.status,reason:outcome.reason};
+  const outcome=editionOutcome(counts.published,Number(instagram.instagram_published)||0,covers.articles_with_images,counts.published===3?String(instagram.instagram||'instagram_pending'):radar.reason);
+  metrics={...metrics,...counts,...covers,...instagram,radar_date:date,attempt:attempts,status:outcome.status,reason:outcome.reason};
   const next=new Date(Date.now()+(radar.reason==='news_daily_budget_exhausted'?3600000:300000)).toISOString();
   checked(await db.from('radar_editions').update({status:outcome.status,search_stage:radar.stage,metrics,last_reason:outcome.reason,next_attempt_at:next,updated_at:new Date().toISOString()}).eq('radar_date',date));
   checked(await db.from('job_runs').update({status:outcome.status,finished_at:new Date().toISOString(),metrics}).eq('id',run!.id));

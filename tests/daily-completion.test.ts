@@ -7,11 +7,11 @@ import {editorialDecision} from '../lib/editorial';
 
 test('conclusão exige exatamente três publicações confirmadas em cada canal',()=>{
  for(let portal=0;portal<5;portal++)for(let instagram=0;instagram<5;instagram++){
-  assert.equal(editionOutcome(portal,instagram).status==='completed',portal===3&&instagram===3);
+  assert.equal(editionOutcome(portal,instagram,2).status==='completed',portal===3&&instagram===3);
  }
- assert.equal(editionOutcome(4,3).status,'blocked');
- assert.equal(editionOutcome(3,2,'instagram_pending').reason,'instagram_pending');
- assert.equal(editionOutcome(1,0,'news_daily_budget_exhausted').status,'pending');
+ assert.equal(editionOutcome(4,3,3).status,'blocked');
+ assert.equal(editionOutcome(3,2,2,'instagram_pending').reason,'instagram_pending');
+ assert.equal(editionOutcome(1,0,0,'news_daily_budget_exhausted').status,'pending');
  assert.deepEqual(SEARCH_STAGES.map(s=>s.days),[1,3,7,14]);
  assert.ok(retryDelay(2)>retryDelay(1));assert.ok(retryDelay(100)<=300000);
 });
@@ -33,6 +33,14 @@ test('banco bloqueia quarta notícia, preserva reexecução e isola edição/cot
  await assert.rejects(insert(4),/radar_daily_capacity_reached/);
  await db.exec(`update articles set summary='Correção sem republicação' where title_key='key-1'`);
  assert.equal((await db.query(`select id from articles where status='published' and radar_date='2026-10-06'`)).rows.length,3);
+ await db.exec(`insert into radar_editions(radar_date) values('2026-10-06');`);
+ await assert.rejects(db.exec(`update radar_editions set status='completed' where radar_date='2026-10-06'`),/publication_images_missing/);
+ await db.exec(`update articles set cover_url='https://example.com/art.jpg' where title_key in ('key-1','key-2');`);
+ await assert.rejects(db.exec(`update radar_editions set status='completed' where radar_date='2026-10-06'`),/publication_instagram_missing/);
+ await db.exec(`insert into instagram_posts(article_id,account_id,radar_date,slot,title,caption,source_name,status,image_url)
+ select id,'123',radar_date,row_number() over(order by title_key),'Título','Legenda','Fonte','published','https://example.com/post.jpg' from articles where radar_date='2026-10-06';`);
+ await db.exec(`update radar_editions set status='completed' where radar_date='2026-10-06';`);
+ await assert.rejects(db.exec(`update instagram_posts set image_url=null where slot=1`),/instagram_requires_art/);
  await insert(5,'2026-10-07');
  await assert.rejects(db.exec(`update articles set radar_date='2026-10-06' where title_key='key-5'`),/radar_daily_capacity_reached/);
  for(let n=0;n<40;n++)assert.equal((await db.query<{ok:boolean}>('select reserve_news_call() as ok')).rows[0].ok,true);
@@ -40,4 +48,9 @@ test('banco bloqueia quarta notícia, preserva reexecução e isola edição/cot
  assert.equal((await db.query<{ok:boolean}>('select reserve_ai_call() as ok')).rows[0].ok,true);
  await db.exec(`set role anon`);await assert.rejects(db.exec('select * from radar_editions'));await assert.rejects(db.exec('select reserve_news_call()'));await db.exec('reset role');
  }finally{await db.close();}
+});
+
+test('duas artes são obrigatórias mesmo com Instagram completo',()=>{
+ for(let covers=0;covers<=3;covers++)assert.equal(editionOutcome(3,3,covers).status==='completed',covers>=2);
+ assert.equal(editionOutcome(3,3,1).reason,'publication_images_missing');
 });
