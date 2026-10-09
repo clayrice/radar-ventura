@@ -25,8 +25,9 @@ async function coverImage(url:string|null|undefined){
  }catch{return null;}
 }
 
-export async function instagramArtwork(post:{title:string;source_name:string;radar_date:string;category?:string;cover_url?:string|null;cover_origin?:string|null}){
+export async function instagramArtwork(post:{title:string;source_name:string;radar_date:string;category:string;cover_url?:string|null;cover_origin?:string|null}){
  if(!post.cover_url||!['feed','article'].includes(post.cover_origin||''))throw new Error('Imagem original da matéria obrigatória');
+ if(!post.category?.trim())throw new Error('Categoria editorial obrigatória para arte Instagram');
  const logo=await readFile(join(process.cwd(),'public/ventura-logo.png'));
  const fonts=await Promise.all([600,700].map(async weight=>({name:'Space Grotesk',weight:weight as 600|700,style:'normal' as const,data:await readFile(join(process.cwd(),`public/fonts/space-grotesk-${weight}.ttf`))})));
  const photo=await coverImage(post.cover_url);if(!photo)throw new Error('Não foi possível obter a imagem original da matéria');
@@ -39,7 +40,7 @@ export async function instagramArtwork(post:{title:string;source_name:string;rad
    <div style={{display:'flex',fontSize:22,letterSpacing:2,textShadow:'0 1px 5px #15142F'}}>RADAR / {date}</div>
   </div>
   <div style={{display:'flex',flexDirection:'column',position:'absolute',left:70,right:70,bottom:164}}>
-   <div style={{display:'flex',alignSelf:'flex-start',background:'#DBFF4F',color:'#15142F',padding:'14px 19px',fontSize:19,letterSpacing:2,fontWeight:600,marginBottom:34}}>{label(post.category||'Business').toUpperCase()}</div>
+   <div style={{display:'flex',alignSelf:'flex-start',background:'#DBFF4F',color:'#15142F',padding:'14px 19px',fontSize:19,letterSpacing:2,fontWeight:600,marginBottom:34}}>{label(post.category).toUpperCase()}</div>
    <div style={{fontSize:titleSize,fontWeight:700,lineHeight:1.04,letterSpacing:-3.3,textShadow:'0 2px 6px #15142F'}}>{post.title}</div>
   </div>
   <div style={{display:'flex',position:'absolute',right:32,top:585,fontSize:15,writingMode:'vertical-rl',textShadow:'0 1px 4px black'}}>Fonte: {post.source_name}</div>
