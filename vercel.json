@@ -1,36 +1,11 @@
 {
   "crons": [
-    {
-      "path": "/api/jobs/daily",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/jobs/daily",
-      "schedule": "0 11 * * *"
-    },
-    {
-      "path": "/api/jobs/daily",
-      "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/jobs/daily",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/jobs/daily",
-      "schedule": "0 17 * * *"
-    },
-    {
-      "path": "/api/jobs/daily",
-      "schedule": "0 20 * * *"
-    },
-    {
-      "path": "/api/jobs/daily",
-      "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/jobs/instagram?date=2026-10-07",
-      "schedule": "0 9 * * *"
-    }
+    {"path": "/api/jobs/daily", "schedule": "0 9 * * *"},
+    {"path": "/api/jobs/daily", "schedule": "0 11 * * *"},
+    {"path": "/api/jobs/daily", "schedule": "0 12 * * *"},
+    {"path": "/api/jobs/daily", "schedule": "0 14 * * *"},
+    {"path": "/api/jobs/daily", "schedule": "0 17 * * *"},
+    {"path": "/api/jobs/daily", "schedule": "0 20 * * *"},
+    {"path": "/api/jobs/daily", "schedule": "0 23 * * *"}
   ]
 }
