@@ -60,6 +60,12 @@ test('formato editorial aceita três parágrafos naturais sem exigir o mesmo tam
  const normalized=normalizeRadarSummary(continuous);
  assert.equal(hasRadarParagraphs(normalized),true);
  assert.equal(normalized.split('\n\n').length,3);
+ const fourSentences=Array.from({length:4},(_,i)=>`Esta é a frase ${i+1}, com contexto suficiente para formar um parágrafo editorial claro e verificável.`).join(' ');
+ const normalizedFour=normalizeRadarSummary(fourSentences);
+ assert.equal(hasRadarParagraphs(normalizedFour),true);
+ assert.equal(normalizedFour.split('\n\n').length,3);
+ const shortMiddle=`${paragraph} Uma segunda frase documenta outro fato da matéria.\n\nIA.\n\n${paragraph}`;
+ assert.equal(hasRadarParagraphs(normalizeRadarSummary(shortMiddle)),true);
 });
 test('radar mistura assuntos e limita sequência de lançamentos',()=>{
  const launches=Array.from({length:9},(_,i)=>({...demoArticles[0],id:'launch-'+i,category:'Big launches'}));
