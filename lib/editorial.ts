@@ -12,10 +12,20 @@ Produza título original em português brasileiro. Em Guides, comece com "Guia:"
 brazil_impact contém exclusivamente a reflexão Ventura: 60 a 100 palavras, com consequência específica para o empreendedor brasileiro e um próximo passo proporcional. Considere equipe enxuta, orçamento, clientes e custos quando pertinente. Diferencie possibilidades de resultados comprovados. Não invente dados brasileiros nem obrigações legais. Toda orientação da Ventura fica na seção final "E a gente com isso?", separada do texto da fonte. Parceiros patrocinados nunca influenciam a seleção.`;
 export function normalizeRadarSummary(value:string){
  const lines=value.replace(/\r/g,'').split(/\n+/).map(p=>p.trim()).filter(Boolean);
- if(lines.length>=3&&lines.length<=4)return lines.join('\n\n');
- const sentences=(value.replace(/\s+/g,' ').trim().match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g)||[]).map(s=>s.trim()).filter(Boolean);
+ if(lines.length>=3&&lines.length<=4&&lines.every(p=>p.length>=30))return lines.join('\n\n');
+ const source=lines.join(' ')||value;
+ const rawSentences=(source.replace(/\s+/g,' ').trim().match(/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g)||[]).map(s=>s.trim()).filter(Boolean);
+ const sentences:string[]=[];
+ for(let index=0;index<rawSentences.length;index++){
+  const sentence=rawSentences[index];
+  if(sentence.length<30&&sentences.length){sentences[sentences.length-1]+=` ${sentence}`;continue;}
+  if(sentence.length<30&&index+1<rawSentences.length){sentences.push(`${sentence} ${rawSentences[++index]}`);continue;}
+  sentences.push(sentence);
+ }
  if(sentences.length<3)return value.trim();
- const size=Math.ceil(sentences.length/3);return [sentences.slice(0,size),sentences.slice(size,size*2),sentences.slice(size*2)].filter(group=>group.length).map(group=>group.join(' ')).join('\n\n');
+ const paragraphs=Math.min(4,Math.max(3,Math.ceil(sentences.length/2)));
+ const base=Math.floor(sentences.length/paragraphs),extra=sentences.length%paragraphs;let offset=0;
+ return Array.from({length:paragraphs},(_,index)=>{const end=offset+base+(index<extra?1:0);const paragraph=sentences.slice(offset,end).join(' ');offset=end;return paragraph;}).join('\n\n');
 }
 export function hasRadarParagraphs(value:string){
  const paragraphs=value.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);
