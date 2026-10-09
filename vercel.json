@@ -27,10 +27,6 @@
     {
       "path": "/api/jobs/daily",
       "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/jobs/instagram",
-      "schedule": "0 10 * * *"
     }
   ]
 }

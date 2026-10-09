@@ -1,7 +1,7 @@
 import {timingSafeEqual} from 'node:crypto';
 import {runDaily} from '@/lib/jobs';
 export const runtime='nodejs';
-export const maxDuration=300;
+export const maxDuration=60;
 export const dynamic='force-dynamic';
 export async function GET(req:Request){
  const secret=process.env.CRON_SECRET;

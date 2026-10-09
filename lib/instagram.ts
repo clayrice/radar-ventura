@@ -7,7 +7,7 @@ import {instagramArtwork} from './instagram-art';
 import type {Article} from './types';
 
 type Db=ReturnType<typeof adminDb>;
-type Post={id:string;article_id:string;account_id:string;radar_date:string;title:string;caption:string;source_name:string;status:string;image_url:string|null;container_id:string|null;attempts:number};
+type Post={id:string;article_id:string;account_id:string;radar_date:string;title:string;caption:string;source_name:string;status:string;cover_url:string|null;cover_origin:'feed'|'article'|null;image_url:string|null;container_id:string|null;attempts:number};
 type MetaResult={id?:string;username?:string;status_code?:string;data?:{permission?:string;status?:string}[]};
 function configuration(){
  const account=process.env.INSTAGRAM_ACCOUNT_ID;
@@ -35,8 +35,9 @@ async function meta(path:string,method:'GET'|'POST'='GET',values:Record<string,s
 }
 async function update(db:Db,id:string,values:Record<string,unknown>){checked(await db.from('instagram_posts').update(values).eq('id',id));}
 async function processPost(db:Db,post:Post,deadline:number){
- const article=checked(await db.from('articles').select('status').eq('id',post.article_id).maybeSingle());
+ const article=checked(await db.from('articles').select('status,cover_url,cover_origin').eq('id',post.article_id).maybeSingle());
  if(article?.status!=='published'){await update(db,post.id,{status:'cancelled'});return false;}
+ if(!article.cover_url?.trim()||!['feed','article'].includes(article.cover_origin||'')||post.cover_url!==article.cover_url||post.cover_origin!==article.cover_origin){await update(db,post.id,{status:'failed',last_error:'Imagem original da matéria ausente ou divergente'});return false;}
  if(post.status==='creating'){await update(db,post.id,{status:'queued',last_error:'Criação interrompida antes da publicação; nova tentativa segura'});post={...post,status:'queued'};}
  if(post.status==='queued'){
   if(post.attempts>=3){await update(db,post.id,{status:'failed',last_error:'Limite de tentativas atingido'});return false;}
@@ -76,7 +77,7 @@ async function processPost(db:Db,post:Post,deadline:number){
 }
 
 export async function runInstagram(deadline=Date.now()+75000,date=radarDate()){
- if(process.env.INSTAGRAM_PUBLISH_ENABLED!=='true')return {instagram:'disabled'};
+ if(process.env.INSTAGRAM_PUBLISH_ENABLED==='false')return {instagram:'disabled'};
  const db=adminDb();const owner=randomUUID();
  if(!checked(await db.rpc('acquire_job',{lock_name:'instagram',lock_owner:owner})))return {instagram:'already_running'};
  let published=0,failures=0;

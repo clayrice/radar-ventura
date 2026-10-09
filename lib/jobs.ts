@@ -85,12 +85,13 @@ export async function runDaily(){
  const db=adminDb();const owner=randomUUID();
  if(!checked(await db.rpc('acquire_job',{lock_name:'daily',lock_owner:owner})))return {status:'pending',reason:'already_running'};
  let run:{id:string}|null=null;let date=radarDate();let attempts=0;
- const deadline=Date.now()+255000;let metrics:Record<string,unknown>={};
+  // Hobby functions have a 60-second ceiling; reserve time for persistence and response.
+  const deadline=Date.now()+54000;let metrics:Record<string,unknown>={};
  try{
   // A killed invocation remains visibly interrupted, never completed.
   checked(await db.from('job_runs').update({status:'interrupted',finished_at:new Date().toISOString(),error:'Worker interrompido; retomado pela próxima execução'}).eq('job','daily').eq('status','running'));
   checked(await db.from('radar_editions').upsert({radar_date:date},{onConflict:'radar_date',ignoreDuplicates:true}));
-  const edition=checked(await db.from('radar_editions').select('*').neq('status','completed').lte('next_attempt_at',new Date().toISOString()).order('next_attempt_at').order('radar_date').limit(1).maybeSingle());
+ const edition=checked(await db.from('radar_editions').select('*').eq('radar_date',date).neq('status','completed').lte('next_attempt_at',new Date().toISOString()).maybeSingle());
   if(!edition){const current=checked(await db.from('radar_editions').select('status,last_reason,metrics').eq('radar_date',date).single());return {status:current?.status||'pending',reason:current?.last_reason||'retry_scheduled',...current?.metrics};}
   date=edition.radar_date;attempts=edition.attempts+1;
   run=checked(await db.from('job_runs').insert({job:'daily',metrics:{radar_date:date,attempt:attempts}}).select('id').single());
@@ -102,12 +103,13 @@ export async function runDaily(){
   };
   checked(await db.from('subscriptions').update({status:'inactive'}).eq('status','active').lte('expires_at',new Date().toISOString()));
   checked(await db.from('partners').update({active:false}).eq('active',true).lte('expires_at',new Date().toISOString()));
-  const radar=await fillRadar(db,date,edition.search_stage,deadline-80000,progress);
-  const covers=await recoverEditionCovers(db,date,deadline-85000);
+  const radar=await fillRadar(db,date,edition.search_stage,deadline-20000,progress);
+  const covers=await recoverEditionCovers(db,date,deadline-5000);
   const counts=await radarCounts(db,date);
   let instagram:Record<string,unknown>={instagram:'waiting_for_three_articles',instagram_published:0};
-  if(counts.published===3&&covers.articles_with_images>=2&&Date.now()<deadline-20000){
-   instagram=await runInstagram(deadline,date).catch(()=>({instagram:'failed',instagram_published:0,instagram_failures:1}));
+  if(counts.published===3&&covers.articles_with_images===3&&Date.now()<deadline-5000){
+   // Allow posting to use the remaining function budget; later cron runs resume safely.
+   instagram=await runInstagram(deadline+15000,date).catch(()=>({instagram:'failed',instagram_published:0,instagram_failures:1}));
   }
   const outcome=editionOutcome(counts.published,Number(instagram.instagram_published)||0,covers.articles_with_images,counts.published===3?String(instagram.instagram||'instagram_pending'):radar.reason);
   metrics={...metrics,...counts,...covers,...instagram,radar_date:date,attempt:attempts,status:outcome.status,reason:outcome.reason};
@@ -116,8 +118,8 @@ export async function runDaily(){
   checked(await db.from('job_runs').update({status:outcome.status,finished_at:new Date().toISOString(),metrics}).eq('id',run!.id));
   console.info('radar_daily',JSON.stringify(metrics));
   // Customer work has its own budget and cannot turn an incomplete edition into success.
-  if(Date.now()<deadline-55000){
-   try{await hydratePublishedCovers(db,deadline-10000);await generateWeekly(db,deadline-45000);await generateRoadmaps(db,deadline-45000);await deliver(db,deadline-20000);}catch{console.error('radar_auxiliary_jobs_failed');}
+  if(Date.now()<deadline-45000){
+   try{await hydratePublishedCovers(db,deadline-30000);await generateWeekly(db,deadline-30000);await generateRoadmaps(db,deadline-30000);await deliver(db,deadline-12000);}catch{console.error('radar_auxiliary_jobs_failed');}
   }
   return metrics;
  }catch(error){

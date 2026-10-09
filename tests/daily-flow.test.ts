@@ -23,17 +23,18 @@ function database(initial:Row[]){
 }
 const evidence='Uma reportagem independente documentou como a equipe mudou suas tarefas após avaliar a ferramenta.';
 const good={title:'Uma mudança documentada',summary:('Uma reportagem apresenta fatos verificáveis e contexto suficiente sobre a decisão da empresa.\n\n').repeat(3).trim(),brazil_impact:'O empreendedor brasileiro pode usar esse exemplo como ponto de partida para avaliar uma tarefa específica da equipe.',category:'Business',sectors:['Retail'],publish:true,human_angle:evidence,perspective_evidence:evidence,business_relevance:80,reader_interest:80,launch_importance:0};
-const article=(id:string,days:number,status='queued'):Row=>({id,title:id,source_id:id,source_kind:'press',source_name:'Fonte',excerpt:evidence,attempts:0,status,published_at:new Date(Date.now()-days*86400000).toISOString(),next_attempt_at:new Date(0).toISOString()});
+const article=(id:string,days:number,status='queued'):Row=>({id,title:id,source_id:id,source_kind:'press',source_name:'Fonte',excerpt:evidence,cover_url:`https://cdn.example.com/${id}.jpg`,cover_origin:'feed',attempts:0,status,published_at:new Date(Date.now()-days*86400000).toISOString(),next_attempt_at:new Date(0).toISOString()});
 
 test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar quarto item',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'radar-flow-'));const bundle=join(dir,'flow.cjs');
  try{
  await build({entryPoints:[new URL('../lib/daily-radar.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'provider-boundaries',setup(b){
-  b.onResolve({filter:/^(server-only|\.\/db|\.\/ai)$/},args=>({path:args.path,namespace:'test-provider'}));
-  b.onLoad({filter:/.*/,namespace:'test-provider'},args=>({contents:args.path==='server-only'?'':args.path==='./db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:`export const generate=async(_schema,_name,_instructions,input)=>globalThis.__radarGenerate(input);`,loader:'js'}));
+  b.onResolve({filter:/^(server-only|\.\/db|\.\/ai|\.\/news-images|\.\/pipeline-core)$/},args=>({path:args.path,namespace:'test-provider'}));
+  b.onLoad({filter:/.*/,namespace:'test-provider'},args=>({contents:args.path==='server-only'?'':args.path==='./db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='\./ai'?`export const generate=async(_schema,_name,_instructions,input)=>globalThis.__radarGenerate(input);`:args.path==='\./pipeline-core'?`export const feedAllowlist={};export const sourceArticleUrl=x=>x;export const titleKey=x=>x;`:`export const feedCover=()=>({});export const pageCover=async()=>({});export const verifiedImageUrl=async url=>globalThis.__verifyImage(url);`,loader:'js'}));
  }}]});
  const flow=createRequire(import.meta.url)(bundle);
  const calls:string[]=[];
+ (globalThis as any).__verifyImage=async(url:string)=>url;
  (globalThis as any).__radarGenerate=async(input:Row)=>{calls.push(input.title);if(input.title==='failed')throw new Error('provider timeout');return {...good,publish:input.title!=='rejected'};};
  const db=database([article('recent',0.1),article('rejected',0.2),article('failed',0.3),article('older',2),article('oldest',6),article('spare',8)]);
  const progress:Row[]=[];const date='2026-10-06';
@@ -52,27 +53,26 @@ test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar qu
  const short=database([article('waiting',0.1)]);
  const interrupted=await flow.fillRadar(short,date,0,Date.now()+1000,async()=>{});
  assert.equal(interrupted.reason,'time_budget_exhausted');assert.equal(await flow.portalCount(short,date),0);
- }finally{delete (globalThis as any).__radarGenerate;await rm(dir,{recursive:true,force:true});}
+ }finally{delete (globalThis as any).__radarGenerate;delete (globalThis as any).__verifyImage;await rm(dir,{recursive:true,force:true});}
 });
 
-test('recupera capas com retry e não recria imagens já persistidas',async()=>{
+test('recupera imagens da própria matéria com retry e sem arte substituta',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'radar-covers-'));const bundle=join(dir,'covers.cjs');
  try{
- await build({entryPoints:[new URL('../lib/radar-covers.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'art-boundary',setup(b){
-  b.onResolve({filter:/^(server-only|\.\/db|\.\/instagram-art)$/},args=>({path:args.path,namespace:'cover-test'}));
-  b.onLoad({filter:/.*/,namespace:'cover-test'},args=>({contents:args.path==='server-only'?'':args.path==='./db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:`export const instagramArtwork=async p=>globalThis.__coverArt(p);`,loader:'js'}));
+ await build({entryPoints:[new URL('../lib/radar-covers.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'source-image-boundary',setup(b){
+  b.onResolve({filter:/^(server-only|\.\/db|\.\/pipeline-core|\.\/news-images)$/},args=>({path:args.path,namespace:'cover-test'}));
+  b.onLoad({filter:/.*/,namespace:'cover-test'},args=>({contents:args.path==='server-only'?'':args.path==='\.\/db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='\.\/pipeline-core'?`export const feedAllowlist={a:{hosts:['source.example.com']},b:{hosts:['source.example.com']},c:{hosts:['source.example.com']}};`:`export const pageCover=async url=>globalThis.__pageCover(url);export const verifiedImageUrl=async url=>url;`,loader:'js'}));
  }}]});
  const {recoverEditionCovers}=createRequire(import.meta.url)(bundle);
- const date='2026-10-08';const db:any=database(['a','b','c'].map(id=>({...article(id,0,'published'),radar_date:date,cover_url:null})));
- let uploads=0;db.storage={from:()=>({upload:async()=>{uploads++;return {error:null};},getPublicUrl:(path:string)=>({data:{publicUrl:'https://example.com/'+path}})})};
+ const date='2026-10-08';const db:any=database(['a','b','c'].map(id=>({...article(id,0,'published'),source_id:id,source_url:`https://source.example.com/${id}`,radar_date:date,cover_url:id==='a'?'https://old.example.com/old.jpg':null,cover_origin:null})));
  const calls:Record<string,number>={};
- (globalThis as any).__coverArt=async(p:Row)=>{calls[p.id]=(calls[p.id]||0)+1;if(p.id==='c'||p.id==='b'&&calls[p.id]===1)throw Error('renderer failed');return Buffer.from('jpeg');};
+ (globalThis as any).__pageCover=async(url:string)=>{const id=url.split('/').pop()!;calls[id]=(calls[id]||0)+1;if(id==='c'&&calls[id]===1)throw Error('source unavailable');return {cover_url:`https://cdn.example.com/${id}.jpg`,cover_origin:'article'};};
  const first=await recoverEditionCovers(db,date,Date.now()+60000);
  assert.equal(first.articles_with_images,2);assert.equal(first.articles_without_images,1);
- assert.equal(first.cover_attempts,5);assert.equal(first.cover_failures,3);assert.equal(uploads,2);
- (globalThis as any).__coverArt=async()=>Buffer.from('jpeg');
+ assert.equal(first.cover_attempts,3);assert.equal(first.cover_failures,1);assert.equal(db.tables.articles[0].cover_url,'https://cdn.example.com/a.jpg');
+ (globalThis as any).__pageCover=async(url:string)=>({cover_url:`https://cdn.example.com/${url.split('/').pop()}.jpg`,cover_origin:'article'});
  const second=await recoverEditionCovers(db,date,Date.now()+60000);
  assert.equal(second.articles_with_images,3);assert.equal(second.cover_attempts,1);
  assert.equal((await recoverEditionCovers(db,date,Date.now()+60000)).cover_attempts,0);
- }finally{delete (globalThis as any).__coverArt;await rm(dir,{recursive:true,force:true});}
+ }finally{delete (globalThis as any).__pageCover;await rm(dir,{recursive:true,force:true});}
 });

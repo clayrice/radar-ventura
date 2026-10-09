@@ -1,6 +1,7 @@
 import type {Article} from './types';
 
 export function instagramDraft(article:Article){
+ if(!article.cover_url?.trim()||!['feed','article'].includes(article.cover_origin||''))throw new Error('Imagem original da matéria obrigatória para Instagram');
  const paragraphs=article.summary.split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean);
  if(paragraphs.length<2||!article.brazil_impact?.trim())throw new Error('Notícia incompleta para Instagram');
  const split=Math.ceil(paragraphs.length/2);
@@ -9,7 +10,7 @@ export function instagramDraft(article:Article){
  // Do not silently truncate facts, attribution or the Brazilian reflection.
  if([...caption].length>2200)throw new Error('Legenda excede o limite; revisar antes de publicar');
  if([...article.title].length>240)throw new Error('Título exige revisão para a capa');
- return {title:article.title,caption,source_name:article.source_name,radar_date:article.radar_date,cover_url:article.cover_url||null};
+ return {title:article.title,caption,source_name:article.source_name,radar_date:article.radar_date,cover_url:article.cover_url||null,cover_origin:article.cover_origin};
 }
 
 export function instagramPublishAction(state:string,containerStatus:string){

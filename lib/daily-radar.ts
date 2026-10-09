@@ -5,7 +5,7 @@ import {feedAllowlist,sourceArticleUrl,titleKey} from './pipeline-core';
 import {editorialDecision,editorialInstructions,normalizeRadarSummary,selectDailyCandidates} from './editorial';
 import {classificationSchema} from './validation';
 import {generate} from './ai';
-import {feedCover} from './news-images';
+import {feedCover,pageCover,verifiedImageUrl} from './news-images';
 import {DAILY_TARGET,SEARCH_STAGES,NewsBudgetError,retryDelay} from './daily-run-core';
 
 type Db=ReturnType<typeof adminDb>;
@@ -39,13 +39,13 @@ async function collect(db:Db,date:string,stage:number,deadline:number){
  const {days,items}=SEARCH_STAGES[stage];let sourceErrors=0,skipped=0,added=0;
  // Keep disabled sources disabled. Widen the window and feed depth over verified feeds.
  const sources=checked(await db.from('sources').select('*').eq('enabled',true).in('kind',['press','analysis']).order('last_fetched_at',{ascending:true,nullsFirst:true}))||[];
- for(let offset=0;offset<sources.length&&Date.now()<deadline-30000;offset+=4){
+ for(let offset=0;offset<sources.length&&Date.now()<deadline-12000;offset+=4){
   await Promise.all(sources.slice(offset,offset+4).map(async source=>{
    const allowed=feedAllowlist[source.id];if(!allowed||allowed.url!==source.feed_url)return;
    try{
-    let result;for(let attempt=0;attempt<2;attempt++){try{result=await feed(allowed.url);break;}catch(error){if(attempt===1||Date.now()>deadline-30000)throw error;await new Promise(resolve=>setTimeout(resolve,500));}}
+    let result;for(let attempt=0;attempt<2;attempt++){try{result=await feed(allowed.url);break;}catch(error){if(attempt===1||Date.now()>deadline-12000)throw error;await new Promise(resolve=>setTimeout(resolve,500));}}
     for(const item of result?.items.slice(0,items)||[]){
-     if(Date.now()>deadline-12000)break;
+     if(Date.now()>deadline-6000)break;
      const url=item.link&&sourceArticleUrl(item.link,source.id);const published=new Date(item.isoDate||item.pubDate||'');
      const excerpt=(item.contentSnippet||item.summary||item.content||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,5000);
      if(!url||!item.title||!Number.isFinite(published.getTime())||published.getTime()>Date.now()+60000||published.getTime()<Date.now()-days*86400000||excerpt.length<120){skipped++;continue;}
@@ -64,7 +64,7 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
  const seen=new Set<string>();
  await track(db,date,(checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',date))||[]).map(a=>a.id));
  const save=async()=>onProgress({search_stage:stage,source_errors:sourceErrors,feed_items_skipped:skipped,added,classification_failures:failures,...await radarCounts(db,date),reason});
- while(await portalCount(db,date)<DAILY_TARGET&&Date.now()<deadline-55000){
+ while(await portalCount(db,date)<DAILY_TARGET&&Date.now()<deadline-8000){
   const collection=await collect(db,date,stage,deadline);sourceErrors+=collection.source_errors;skipped+=collection.feed_items_skipped;added+=collection.added;
   const recent=new Date(Date.now()-SEARCH_STAGES[stage].days*86400000).toISOString();
   // Include already queued candidates; failed/rejected articles never count toward the quota.
@@ -72,10 +72,26 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
   await track(db,date,pool.map(a=>a.id));
   const candidates=selectDailyCandidates(pool.filter(a=>!seen.has(a.id)),200);
   for(const a of candidates){
-   if(Date.now()>=deadline-55000){reason='time_budget_exhausted';break;}
+   if(Date.now()>=deadline-7000){reason='time_budget_exhausted';break;}
    if(await portalCount(db,date)>=DAILY_TARGET)break;
    seen.add(a.id);
    try{
+    // A candidate cannot be classified or published until its own source supplies an image.
+    let cover:any=a.cover_url&&['feed','article'].includes(a.cover_origin||'')?{cover_url:a.cover_url,cover_origin:a.cover_origin}:{};
+    if(cover.cover_url){const verified=await verifiedImageUrl(cover.cover_url);if(verified)cover.cover_url=verified;else cover={};}
+    if(!cover.cover_url){
+     try{cover=await pageCover(a.source_url,feedAllowlist[a.source_id]?.hosts||[]);}catch{cover={};}
+     if(cover.cover_url){const verified=await verifiedImageUrl(cover.cover_url);if(verified)cover.cover_url=verified;else cover={};}
+     if(cover.cover_url){checked(await db.from('articles').update({...cover,image_attempts:a.image_attempts||0,last_error:null}).eq('id',a.id).eq('status','queued'));Object.assign(a,cover);}
+     else{
+      const imageAttempts=(a.image_attempts||0)+1;const exhausted=imageAttempts>=3;
+      checked(await db.from('articles').update({image_attempts:imageAttempts,attempts:exhausted?a.attempts+1:a.attempts,status:exhausted?'rejected':'queued',next_attempt_at:new Date(Date.now()+retryDelay(imageAttempts)).toISOString(),last_error:'source_image_missing'}).eq('id',a.id).eq('status','queued'));
+      if(exhausted)failures++;
+      reason='source_images_pending';await save();continue;
+     }
+    }else if(cover.cover_url!==a.cover_url||cover.cover_origin!==a.cover_origin){
+     checked(await db.from('articles').update(cover).eq('id',a.id).eq('status','queued'));Object.assign(a,cover);
+    }
     const generated=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:a.excerpt,source:a.source_name});
     const output={...generated,summary:normalizeRadarSummary(generated.summary)};const decision=editorialDecision(output,a.source_kind,a.excerpt);
     // Invalid formatting may retry; lack of evidence or editorial rejection is final.
@@ -88,13 +104,13 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
    await save();
   }
   if(await portalCount(db,date)>=DAILY_TARGET){reason='portal_target_reached';break;}
-  if(Date.now()>=deadline-55000){reason='time_budget_exhausted';break;}
+  if(Date.now()>=deadline-7000){reason='time_budget_exhausted';break;}
   if(stage<SEARCH_STAGES.length-1){stage++;await save();continue;}
   // Process other sources in the expanded pool before ending this invocation.
   if(candidates.length)continue;
   reason=sourceErrors?'source_failures_or_insufficient_evidence':'insufficient_valid_articles';break;
  }
  if(await portalCount(db,date)===DAILY_TARGET)reason='portal_target_reached';
- else if(Date.now()>=deadline-55000)reason='time_budget_exhausted';
+ else if(Date.now()>=deadline-7000)reason='time_budget_exhausted';
  await save();return {reason,stage};
 }

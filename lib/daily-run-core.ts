@@ -4,7 +4,7 @@ export const SEARCH_STAGES = [
 ] as const;
 export function editionOutcome(portal:number,instagram:number,covers:number,reason='awaiting_publication') {
  if(portal>DAILY_TARGET||instagram>DAILY_TARGET)return {status:'blocked',reason:'publication_count_exceeded'};
- if(portal===DAILY_TARGET&&covers<2)return {status:'pending',reason:'publication_images_missing'};
+ if(portal===DAILY_TARGET&&covers<DAILY_TARGET)return {status:'pending',reason:'publication_images_missing'};
  if(portal===DAILY_TARGET&&instagram===DAILY_TARGET)return {status:'completed',reason:'three_articles_and_posts_confirmed'};
  return {status:'pending',reason};
 }
