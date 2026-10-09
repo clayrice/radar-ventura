@@ -64,12 +64,18 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
  await track(db,date,(checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',date))||[]).map(a=>a.id));
  const save=async()=>onProgress({search_stage:stage,source_errors:sourceErrors,feed_items_skipped:skipped,added,classification_failures:failures,...await radarCounts(db,date),reason});
  while(await portalCount(db,date)<DAILY_TARGET&&Date.now()<deadline-8000){
-  const collection=await collect(db,date,stage,deadline);sourceErrors+=collection.source_errors;skipped+=collection.feed_items_skipped;added+=collection.added;
   const recent=new Date(Date.now()-SEARCH_STAGES[stage].days*86400000).toISOString();
-  // Include already queued candidates; failed/rejected articles never count toward the quota.
-  const pool=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).lte('next_attempt_at',new Date().toISOString()).gte('published_at',recent).order('attempts').order('published_at',{ascending:false}).limit(200))||[];
+  // Resume persisted work before refetching feeds; retries should spend their short
+  // function window on queued articles, not download the same feeds again.
+  let pool=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).lte('next_attempt_at',new Date().toISOString()).gte('published_at',recent).order('attempts').order('published_at',{ascending:false}).limit(200))||[];
   await track(db,date,pool.map(a=>a.id));
-  const candidates=selectDailyCandidates(pool.filter(a=>!seen.has(a.id)),200);
+  let candidates=selectDailyCandidates(pool.filter(a=>!seen.has(a.id)),200);
+  if(!candidates.length){
+   const collection=await collect(db,date,stage,deadline);sourceErrors+=collection.source_errors;skipped+=collection.feed_items_skipped;added+=collection.added;
+   pool=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).lte('next_attempt_at',new Date().toISOString()).gte('published_at',recent).order('attempts').order('published_at',{ascending:false}).limit(200))||[];
+   await track(db,date,pool.map(a=>a.id));
+   candidates=selectDailyCandidates(pool.filter(a=>!seen.has(a.id)),200);
+  }
   for(const a of candidates){
    if(Date.now()>=deadline-7000){reason='time_budget_exhausted';break;}
    if(await portalCount(db,date)>=DAILY_TARGET)break;
