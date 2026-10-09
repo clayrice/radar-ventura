@@ -9,11 +9,11 @@ import {createRequire} from 'node:module';
 // Provider boundaries are stubbed; the production search, validation and persistence flow runs.
 type Row=Record<string,any>;
 function database(initial:Row[]){
- const tables:Record<string,Row[]>={articles:initial,sources:[],radar_candidates:[]};
- return {tables,from(table:string){
+ const tables:Record<string,Row[]>={articles:initial,sources:[],radar_candidates:[]};const reads:string[]=[];
+ return {tables,reads,from(table:string){
   let filters:((r:Row)=>boolean)[]=[],limit=Infinity,action='select',payload:any,options:any={};
   const q:any={select(_?:string,o?:any){options=o||{};return q;},eq(k:string,v:any){filters.push(r=>r[k]===v);return q;},in(k:string,v:any[]){filters.push(r=>v.includes(r[k]));return q;},lt(k:string,v:any){filters.push(r=>r[k]<v);return q;},lte(k:string,v:any){filters.push(r=>r[k]<=v);return q;},gte(k:string,v:any){filters.push(r=>r[k]>=v);return q;},order(){return q;},limit(n:number){limit=n;return q;},update(p:any){action='update';payload=p;return q;},upsert(p:any){action='upsert';payload=p;return q;},then(resolve:any,reject:any){
-   try{let rows=tables[table].filter(r=>filters.every(f=>f(r))).slice(0,limit);
+   try{reads.push(table);let rows=tables[table].filter(r=>filters.every(f=>f(r))).slice(0,limit);
     if(action==='update')for(const r of rows)Object.assign(r,payload);
     if(action==='upsert')for(const r of payload){if(!tables[table].some(x=>x.radar_date===r.radar_date&&x.article_id===r.article_id))tables[table].push(r);}
     return Promise.resolve({data:options.head?null:structuredClone(rows),count:rows.length,error:null}).then(resolve,reject);
@@ -54,6 +54,21 @@ test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar qu
  const interrupted=await flow.fillRadar(short,date,0,Date.now()+1000,async()=>{});
  assert.equal(interrupted.reason,'time_budget_exhausted');assert.equal(await flow.portalCount(short,date),0);
  }finally{delete (globalThis as any).__radarGenerate;delete (globalThis as any).__verifyImage;await rm(dir,{recursive:true,force:true});}
+});
+
+test('retoma três candidatas já salvas antes de consultar os feeds novamente',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'radar-resume-'));const bundle=join(dir,'flow.cjs');
+ try{
+ await build({entryPoints:[new URL('../lib/daily-radar.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'provider-boundaries',setup(b){
+  b.onResolve({filter:/^(server-only|\.\/db|\.\/ai|\.\/news-images|\.\/pipeline-core)$/},args=>({path:args.path,namespace:'test-provider'}));
+  b.onLoad({filter:/.*/,namespace:'test-provider'},args=>({contents:args.path==='server-only'?'':args.path==='\.\/db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='\.\/ai'?`export const generate=async()=>globalThis.__radarGenerate();`:args.path==='\.\/pipeline-core'?`export const feedAllowlist={};export const sourceArticleUrl=x=>x;export const titleKey=x=>x;`:`export const createNewsFeedParser=()=>({});export const feedCover=()=>({});export const pageCover=async()=>({});export const verifiedImageUrl=async url=>url;`,loader:'js'}));
+ }}]});
+ const flow=createRequire(import.meta.url)(bundle);(globalThis as any).__radarGenerate=async()=>good;
+ const db=database(['a','b','c'].map(id=>({...article(id,0),radar_date:'2026-10-09'})));
+ const outcome=await flow.fillRadar(db,'2026-10-09',0,Date.now()+15000,async()=>{});
+ assert.equal(outcome.reason,'portal_target_reached');assert.equal(db.tables.articles.filter(r=>r.status==='published').length,3);
+ assert.equal(db.reads.filter(table=>table==='sources').length,0);
+ }finally{delete (globalThis as any).__radarGenerate;await rm(dir,{recursive:true,force:true});}
 });
 
 test('recupera imagens da própria matéria com retry e sem arte substituta',async()=>{
