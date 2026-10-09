@@ -1,6 +1,13 @@
 import {safeUrl} from './validation';
+import Parser from 'rss-parser';
 type MediaNode={$?:{url?:string;type?:string;medium?:string};'media:credit'?:string[];'media:description'?:string[]};
 type FeedImageItem={enclosure?:{url?:string;type?:string};mediaContent?:MediaNode[];mediaThumbnail?:MediaNode[]};
+export function createNewsFeedParser(){
+ return new Parser({customFields:{item:[
+  ['media:content','mediaContent',{keepArray:true}],
+  ['media:thumbnail','mediaThumbnail',{keepArray:true}],
+ ]}});
+}
 function publicImageUrl(input:string|null|undefined,base?:string){
  if(!input)return null;
  let resolved:string;

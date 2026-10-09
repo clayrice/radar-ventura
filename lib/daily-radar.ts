@@ -1,15 +1,14 @@
 import 'server-only';
-import Parser from 'rss-parser';
 import {adminDb,checked} from './db';
 import {feedAllowlist,sourceArticleUrl,titleKey} from './pipeline-core';
 import {editorialDecision,editorialInstructions,normalizeRadarSummary,selectDailyCandidates} from './editorial';
 import {classificationSchema} from './validation';
 import {generate} from './ai';
-import {feedCover,pageCover,verifiedImageUrl} from './news-images';
+import {createNewsFeedParser,feedCover,pageCover,verifiedImageUrl} from './news-images';
 import {DAILY_TARGET,SEARCH_STAGES,NewsBudgetError,retryDelay} from './daily-run-core';
 
 type Db=ReturnType<typeof adminDb>;
-const parser=new Parser();
+const parser=createNewsFeedParser();
 const message=(e:unknown)=>e instanceof Error?e.message.slice(0,300):'Falha desconhecida';
 async function feed(url:string){
  const response=await fetch(url,{signal:AbortSignal.timeout(12000),redirect:'error',headers:{'User-Agent':'VenturaRadar/0.2'}});

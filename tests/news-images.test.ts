@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {feedCover,pageCover,verifiedImageUrl} from '../lib/news-images';
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {createNewsFeedParser,feedCover,pageCover,verifiedImageUrl} from '../lib/news-images';
 test('capa aceita anexos de imagem e mantém crédito fornecido pela fonte',()=>{
  assert.deepEqual(feedCover({enclosure:{url:'https://images.example.com/cover.jpg',type:'image/jpeg'}}),{cover_url:'https://images.example.com/cover.jpg',cover_origin:'feed',cover_credit:null,cover_caption:null});
  assert.equal(feedCover({mediaContent:[{$:{url:'https://images.example.com/a.png',medium:'image'},'media:credit':['Fotógrafa / Agência']}]}).cover_credit,'Fotógrafa / Agência');
@@ -9,6 +9,11 @@ test('capa não usa anexos de áudio, URLs locais ou protocolos inseguros',()=>{
 });
 test('capa aceita media:thumbnail quando o feed não traz media:content',()=>{
  assert.equal(feedCover({mediaThumbnail:[{$:{url:'https://images.example.com/thumb.jpg'}}]}).cover_url,'https://images.example.com/thumb.jpg');
+});
+test('parser RSS preserva media:content e media:thumbnail para recuperar capas',async()=>{
+ const xml='<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title>Feed</title><item><title>Matéria</title><media:content url="https://images.example.com/capa.jpg" medium="image"><media:credit>Agência</media:credit></media:content><media:thumbnail url="https://images.example.com/thumb.jpg"/></item></channel></rss>';
+ const feed=await createNewsFeedParser().parseString(xml);const cover=feedCover(feed.items[0]);
+ assert.equal(cover.cover_url,'https://images.example.com/capa.jpg');assert.equal(cover.cover_credit,'Agência');
 });
 test('capa recupera og:image e legenda da reportagem',async()=>{
  const html='<html><head><meta property="og:image" content="https://cdn.example.com/capa.jpg?x=1&amp;y=2"><meta property="og:image:alt" content="Executiva apresenta produto"></head></html>';
