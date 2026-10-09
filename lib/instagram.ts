@@ -35,7 +35,7 @@ async function meta(path:string,method:'GET'|'POST'='GET',values:Record<string,s
 }
 async function update(db:Db,id:string,values:Record<string,unknown>){checked(await db.from('instagram_posts').update(values).eq('id',id));}
 async function processPost(db:Db,post:Post,deadline:number){
- const article=checked(await db.from('articles').select('status,cover_url,cover_origin').eq('id',post.article_id).maybeSingle());
+ const article=checked(await db.from('articles').select('status,cover_url,cover_origin,category').eq('id',post.article_id).maybeSingle());
  if(article?.status!=='published'){await update(db,post.id,{status:'cancelled'});return false;}
  if(!article.cover_url?.trim()||!['feed','article'].includes(article.cover_origin||'')||post.cover_url!==article.cover_url||post.cover_origin!==article.cover_origin){await update(db,post.id,{status:'failed',last_error:'Imagem original da matéria ausente ou divergente'});return false;}
  if(post.status==='creating'){await update(db,post.id,{status:'queued',last_error:'Criação interrompida antes da publicação; nova tentativa segura'});post={...post,status:'queued'};}
@@ -44,7 +44,7 @@ async function processPost(db:Db,post:Post,deadline:number){
   await update(db,post.id,{attempts:post.attempts+1});
   let imageUrl=post.image_url;
   if(!imageUrl){
-   const image=await instagramArtwork(post);
+   const image=await instagramArtwork({...post,category:article.category});
    const filename=`${post.id}.jpg`;
    checked(await db.storage.from('instagram-media').upload(filename,image,{contentType:'image/jpeg',upsert:true}));
    imageUrl=db.storage.from('instagram-media').getPublicUrl(filename).data.publicUrl;
