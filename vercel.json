@@ -6,6 +6,7 @@
     {"path": "/api/jobs/daily", "schedule": "0 14 * * *"},
     {"path": "/api/jobs/daily", "schedule": "0 17 * * *"},
     {"path": "/api/jobs/daily", "schedule": "0 20 * * *"},
-    {"path": "/api/jobs/daily", "schedule": "0 23 * * *"}
+    {"path": "/api/jobs/daily", "schedule": "0 23 * * *"},
+    {"path": "/api/jobs/instagram", "schedule": "0 10 * * *"}
   ]
 }
