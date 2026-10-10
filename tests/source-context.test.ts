@@ -27,3 +27,14 @@ test('cache reutiliza resultado válido e invalida quando o texto ou a origem mu
  assert.equal(cachedClassification({key,output},classificationKey(paragraph,'primary')),null);
  assert.equal(cachedClassification({key,output:{publish:true}},key),null);
 });
+
+import {evidencePassages,resolveEvidence,newsClassificationSchema} from '../lib/source-evidence';
+test('servidor resolve uma única evidência literal e recusa índice inventado',()=>{
+ const text=extractArticleText(html);const passages=evidencePassages(text);
+ const generated={...output,perspective_evidence:'A translated or concatenated quote',evidence_index:1};
+ const resolved=resolveEvidence(generated,passages);
+ assert.ok(text.replace(/\s+/g,' ').includes(resolved.perspective_evidence));
+ assert.equal(editorialDecision(resolved,'press',text).publish,true);
+ assert.equal(editorialDecision(resolveEvidence({...generated,evidence_index:99},passages),'press',text).publish,false);
+ assert.ok(newsClassificationSchema.safeParse(generated).success);
+});

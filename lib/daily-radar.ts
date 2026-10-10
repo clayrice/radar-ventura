@@ -2,7 +2,7 @@ import 'server-only';
 import {adminDb,checked} from './db';
 import {feedAllowlist,sourceArticleUrl,titleKey} from './pipeline-core';
 import {editorialDecision,editorialInstructions,normalizeRadarSummary,selectDailyCandidates} from './editorial';
-import {classificationSchema} from './validation';
+import {newsClassificationSchema,evidencePassages,resolveEvidence} from './source-evidence';
 import {generate} from './ai';
 import {createNewsFeedParser,feedCover,pageCover,verifiedImageUrl} from './news-images';
 import {sourceContext} from './source-context';
@@ -118,7 +118,9 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
     let generated=cachedClassification(a.classification_cache,key);
     if(!generated){
      if(Date.now()>deadline-12000){reason='time_budget_exhausted';break;}
-     generated=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:text,source:a.source_name},Math.min(25000,deadline-Date.now()-5000));
+     const passages=evidencePassages(text);
+     const result=await generate(newsClassificationSchema,'news_brief',editorialInstructions+' Escolha evidence_index entre os índices de evidence_passages: use o trecho que sustenta human_angle. Não una trechos distintos. perspective_evidence será conferida e preenchida pelo servidor a partir desse índice.',{title:a.title,excerpt:text,evidence_passages:passages,source:a.source_name},Math.min(25000,deadline-Date.now()-5000));
+     generated=resolveEvidence(result,passages);
      // Persist the original structured result before applying format validation.
      checked(await db.from('articles').update({classification_cache:{key,output:generated}}).eq('id',a.id).eq('status','queued'));
     }

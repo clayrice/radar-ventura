@@ -22,7 +22,7 @@ function database(initial:Row[]){
  }};
 }
 const evidence='Uma reportagem independente documentou como a equipe mudou suas tarefas após avaliar a ferramenta.';
-const good={title:'Uma mudança documentada',summary:('Uma reportagem apresenta fatos verificáveis e contexto suficiente sobre a decisão da empresa.\n\n').repeat(3).trim(),brazil_impact:'O empreendedor brasileiro pode usar esse exemplo como ponto de partida para avaliar uma tarefa específica da equipe.',category:'Business',sectors:['Retail'],publish:true,human_angle:evidence,perspective_evidence:evidence,business_relevance:80,reader_interest:80,launch_importance:0};
+const good={title:'Uma mudança documentada',summary:('Uma reportagem apresenta fatos verificáveis e contexto suficiente sobre a decisão da empresa.\n\n').repeat(3).trim(),brazil_impact:'O empreendedor brasileiro pode usar esse exemplo como ponto de partida para avaliar uma tarefa específica da equipe.',category:'Business',sectors:['Retail'],publish:true,human_angle:evidence,perspective_evidence:evidence,business_relevance:80,reader_interest:80,launch_importance:0,evidence_index:0};
 const article=(id:string,days:number,status='queued'):Row=>({id,title:id,source_id:id,source_kind:'press',source_name:'Fonte',excerpt:evidence,source_text:(evidence+' ').repeat(8),cover_url:`https://cdn.example.com/${id}.jpg`,cover_origin:'feed',attempts:0,status,published_at:new Date(Date.now()-days*86400000).toISOString(),source_text_checked_at:new Date().toISOString(),next_attempt_at:new Date(0).toISOString()});
 
 test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar quarto item',async()=>{
