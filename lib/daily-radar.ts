@@ -5,6 +5,8 @@ import {editorialDecision,editorialInstructions,normalizeRadarSummary,selectDail
 import {classificationSchema} from './validation';
 import {generate} from './ai';
 import {createNewsFeedParser,feedCover,pageCover,verifiedImageUrl} from './news-images';
+import {sourceContext} from './source-context';
+import {classificationKey,cachedClassification} from './classification-cache';
 import {DAILY_TARGET,SEARCH_STAGES,NewsBudgetError,retryDelay} from './daily-run-core';
 
 type Db=ReturnType<typeof adminDb>;
@@ -59,7 +61,7 @@ async function collect(db:Db,date:string,stage:number,deadline:number){
  return {source_errors:sourceErrors,feed_items_skipped:skipped,added};
 }
 export async function fillRadar(db:Db,date:string,initialStage:number,deadline:number,onProgress:(data:Record<string,unknown>)=>Promise<void>){
- let stage=initialStage;let sourceErrors=0,skipped=0,added=0,failures=0;let reason='search_exhausted';
+ let stage=initialStage;const collectedStages=new Set<number>();let sourceErrors=0,skipped=0,added=0,failures=0;let reason='search_exhausted';
  const seen=new Set<string>();
  await track(db,date,(checked(await db.from('articles').select('id').eq('status','published').eq('radar_date',date))||[]).map(a=>a.id));
  const save=async()=>onProgress({search_stage:stage,source_errors:sourceErrors,feed_items_skipped:skipped,added,classification_failures:failures,...await radarCounts(db,date),reason});
@@ -70,7 +72,8 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
   let pool=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).lte('next_attempt_at',new Date().toISOString()).gte('published_at',recent).order('attempts').order('published_at',{ascending:false}).limit(200))||[];
   await track(db,date,pool.map(a=>a.id));
   let candidates=selectDailyCandidates(pool.filter(a=>!seen.has(a.id)),200);
-  if(!candidates.length){
+  if(!candidates.length&&!collectedStages.has(stage)){
+   collectedStages.add(stage);
    const collection=await collect(db,date,stage,deadline);sourceErrors+=collection.source_errors;skipped+=collection.feed_items_skipped;added+=collection.added;
    pool=checked(await db.from('articles').select('*').eq('status','queued').in('source_kind',['press','analysis']).lt('attempts',3).lte('next_attempt_at',new Date().toISOString()).gte('published_at',recent).order('attempts').order('published_at',{ascending:false}).limit(200))||[];
    await track(db,date,pool.map(a=>a.id));
@@ -81,6 +84,20 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
    if(await portalCount(db,date)>=DAILY_TARGET)break;
    seen.add(a.id);
    try{
+    // Hydrate and persist the actual source before classification. The same request
+    // supplies its cover; a retry can reuse this input without fetching again.
+    if(!a.source_text_checked_at||!a.source_text&&Date.now()-Date.parse(a.source_text_checked_at)>=300000){
+     const context=await sourceContext(a.source_url,feedAllowlist[a.source_id]?.hosts||[],fetch,Math.min(8000,Math.max(1,deadline-Date.now()-12000))).catch(()=>({text:''}));
+     const input={source_text:context.text||null,source_text_checked_at:new Date().toISOString(),...('cover_url' in context&&context.cover_url?context:{})};
+     delete (input as any).text;
+     checked(await db.from('articles').update(input).eq('id',a.id).eq('status','queued'));Object.assign(a,input);
+    }
+    const text=a.source_text||a.excerpt;
+    if(text.length<600){
+     const attempts=a.attempts+1;
+     checked(await db.from('articles').update({attempts,status:attempts>=3?'review':'queued',next_attempt_at:new Date(Date.now()+300000).toISOString(),last_error:'insufficient_source_text'}).eq('id',a.id).eq('status','queued'));
+     reason='source_text_pending';await save();continue;
+    }
     // A candidate cannot be classified or published until its own source supplies an image.
     let cover:any=a.cover_url&&['feed','article'].includes(a.cover_origin||'')?{cover_url:a.cover_url,cover_origin:a.cover_origin}:{};
     if(cover.cover_url){const verified=await verifiedImageUrl(cover.cover_url);if(verified)cover.cover_url=verified;else cover={};}
@@ -97,8 +114,15 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
     }else if(cover.cover_url!==a.cover_url||cover.cover_origin!==a.cover_origin){
      checked(await db.from('articles').update(cover).eq('id',a.id).eq('status','queued'));Object.assign(a,cover);
     }
-    const generated=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:a.excerpt,source:a.source_name});
-    const output={...generated,summary:normalizeRadarSummary(generated.summary)};const decision=editorialDecision(output,a.source_kind,a.excerpt);
+    const key=classificationKey(text,a.source_kind);
+    let generated=cachedClassification(a.classification_cache,key);
+    if(!generated){
+     if(Date.now()>deadline-12000){reason='time_budget_exhausted';break;}
+     generated=await generate(classificationSchema,'news_brief',editorialInstructions,{title:a.title,excerpt:text,source:a.source_name},Math.min(25000,deadline-Date.now()-5000));
+     // Persist the original structured result before applying format validation.
+     checked(await db.from('articles').update({classification_cache:{key,output:generated}}).eq('id',a.id).eq('status','queued'));
+    }
+    const output={...generated,summary:normalizeRadarSummary(generated.summary)};const decision=editorialDecision(output,a.source_kind,text);
     // Invalid formatting may retry; lack of evidence or editorial rejection is final.
     const formatError=decision.reason==='Texto precisa de três a quatro parágrafos';
     checked(await db.from('articles').update({title:output.title,summary:output.summary,brazil_impact:output.brazil_impact,category:output.category,sectors:output.sectors,human_angle:output.human_angle,perspective_attribution:a.source_name,perspective_evidence:output.perspective_evidence,editorial_score:Math.round((output.business_relevance+output.reader_interest)/2),status:decision.publish?'published':formatError&&a.attempts<2?'queued':'rejected',radar_date:decision.publish?date:null,attempts:a.attempts+1,next_attempt_at:new Date(Date.now()+retryDelay(a.attempts+1)).toISOString(),model:process.env.OPENAI_MODEL||'gpt-4.1-mini',last_error:decision.reason}).eq('id',a.id).eq('status','queued'));

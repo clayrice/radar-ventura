@@ -23,14 +23,14 @@ function database(initial:Row[]){
 }
 const evidence='Uma reportagem independente documentou como a equipe mudou suas tarefas após avaliar a ferramenta.';
 const good={title:'Uma mudança documentada',summary:('Uma reportagem apresenta fatos verificáveis e contexto suficiente sobre a decisão da empresa.\n\n').repeat(3).trim(),brazil_impact:'O empreendedor brasileiro pode usar esse exemplo como ponto de partida para avaliar uma tarefa específica da equipe.',category:'Business',sectors:['Retail'],publish:true,human_angle:evidence,perspective_evidence:evidence,business_relevance:80,reader_interest:80,launch_importance:0};
-const article=(id:string,days:number,status='queued'):Row=>({id,title:id,source_id:id,source_kind:'press',source_name:'Fonte',excerpt:evidence,cover_url:`https://cdn.example.com/${id}.jpg`,cover_origin:'feed',attempts:0,status,published_at:new Date(Date.now()-days*86400000).toISOString(),next_attempt_at:new Date(0).toISOString()});
+const article=(id:string,days:number,status='queued'):Row=>({id,title:id,source_id:id,source_kind:'press',source_name:'Fonte',excerpt:evidence,source_text:(evidence+' ').repeat(8),cover_url:`https://cdn.example.com/${id}.jpg`,cover_origin:'feed',attempts:0,status,published_at:new Date(Date.now()-days*86400000).toISOString(),source_text_checked_at:new Date().toISOString(),next_attempt_at:new Date(0).toISOString()});
 
 test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar quarto item',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'radar-flow-'));const bundle=join(dir,'flow.cjs');
  try{
  await build({entryPoints:[new URL('../lib/daily-radar.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'provider-boundaries',setup(b){
   b.onResolve({filter:/^(server-only|\.\/db|\.\/ai|\.\/news-images|\.\/pipeline-core)$/},args=>({path:args.path,namespace:'test-provider'}));
-  b.onLoad({filter:/.*/,namespace:'test-provider'},args=>({contents:args.path==='server-only'?'':args.path==='./db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='\./ai'?`export const generate=async(_schema,_name,_instructions,input)=>globalThis.__radarGenerate(input);`:args.path==='\./pipeline-core'?`export const feedAllowlist={};export const sourceArticleUrl=x=>x;export const titleKey=x=>x;`:`export const createNewsFeedParser=()=>({});export const feedCover=()=>({});export const pageCover=async()=>({});export const verifiedImageUrl=async url=>globalThis.__verifyImage(url);`,loader:'js'}));
+  b.onLoad({filter:/.*/,namespace:'test-provider'},args=>({contents:args.path==='server-only'?'':args.path==='./db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='\./ai'?`export const generate=async(_schema,_name,_instructions,input)=>globalThis.__radarGenerate(input);`:args.path==='\./pipeline-core'?`export const feedAllowlist={};export const sourceArticleUrl=x=>x;export const titleKey=x=>x;`:`export const pageCoverFromHtml=()=>({});export const createNewsFeedParser=()=>({});export const feedCover=()=>({});export const pageCover=async()=>({});export const verifiedImageUrl=async url=>globalThis.__verifyImage(url);`,loader:'js'}));
  }}]});
  const flow=createRequire(import.meta.url)(bundle);
  const calls:string[]=[];
@@ -61,7 +61,7 @@ test('retoma três candidatas já salvas antes de consultar os feeds novamente',
  try{
  await build({entryPoints:[new URL('../lib/daily-radar.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'provider-boundaries',setup(b){
   b.onResolve({filter:/^(server-only|\.\/db|\.\/ai|\.\/news-images|\.\/pipeline-core)$/},args=>({path:args.path,namespace:'test-provider'}));
-  b.onLoad({filter:/.*/,namespace:'test-provider'},args=>({contents:args.path==='server-only'?'':args.path==='\.\/db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='\.\/ai'?`export const generate=async()=>globalThis.__radarGenerate();`:args.path==='\.\/pipeline-core'?`export const feedAllowlist={};export const sourceArticleUrl=x=>x;export const titleKey=x=>x;`:`export const createNewsFeedParser=()=>({});export const feedCover=()=>({});export const pageCover=async()=>({});export const verifiedImageUrl=async url=>url;`,loader:'js'}));
+  b.onLoad({filter:/.*/,namespace:'test-provider'},args=>({contents:args.path==='server-only'?'':args.path==='\.\/db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='\.\/ai'?`export const generate=async()=>globalThis.__radarGenerate();`:args.path==='\.\/pipeline-core'?`export const feedAllowlist={};export const sourceArticleUrl=x=>x;export const titleKey=x=>x;`:`export const pageCoverFromHtml=()=>({});export const createNewsFeedParser=()=>({});export const feedCover=()=>({});export const pageCover=async()=>({});export const verifiedImageUrl=async url=>url;`,loader:'js'}));
  }}]});
  const flow=createRequire(import.meta.url)(bundle);(globalThis as any).__radarGenerate=async()=>good;
  const db=database(['a','b','c'].map(id=>({...article(id,0),radar_date:'2026-10-09'})));
@@ -90,4 +90,27 @@ test('recupera imagens da própria matéria com retry e sem arte substituta',asy
  assert.equal(second.articles_with_images,3);assert.equal(second.cover_attempts,1);
  assert.equal((await recoverEditionCovers(db,date,Date.now()+60000)).cover_attempts,0);
  }finally{delete (globalThis as any).__pageCover;await rm(dir,{recursive:true,force:true});}
+});
+
+test('texto completo alimenta o filtro e cache evita chamadas repetidas numa retomada',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'radar-context-'));const bundle=join(dir,'flow.cjs');
+ try{
+  await build({entryPoints:[new URL('../lib/daily-radar.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',logLevel:'silent',plugins:[{name:'context-boundaries',setup(b){
+   b.onResolve({filter:/^(server-only|\.\/db|\.\/ai|\.\/news-images|\.\/pipeline-core|\.\/source-context)$/},args=>({path:args.path,namespace:'context-test'}));
+   b.onLoad({filter:/.*/,namespace:'context-test'},args=>({contents:args.path==='server-only'?'':args.path==='./db'?`export const adminDb=()=>{};export const checked=r=>{if(r.error)throw new Error(r.error.message);return r.data;};`:args.path==='./ai'?`export const generate=async(_s,_n,_i,input)=>globalThis.__contextGenerate(input);`:args.path==='./pipeline-core'?`export const feedAllowlist={};export const sourceArticleUrl=x=>x;export const titleKey=x=>x;`:args.path==='./source-context'?`export const sourceContext=async()=>({text:globalThis.__sourceText});`:`export const createNewsFeedParser=()=>({});export const feedCover=()=>({});export const pageCover=async()=>({});export const verifiedImageUrl=async url=>url;`,loader:'js'}));
+  }}]});
+  const flow=createRequire(import.meta.url)(bundle);
+  const {classificationKey}=await import('../lib/classification-cache');
+  const text=(evidence+' ').repeat(8);(globalThis as any).__sourceText=text;
+  let calls=0;(globalThis as any).__contextGenerate=async(input:Row)=>{calls++;assert.equal(input.excerpt,text);return good;};
+  const db=database([
+   {...article('hydrate',0),source_text:null,source_text_checked_at:null,excerpt:'Resumo curto sem a evidência necessária.'},
+   {...article('cached',0),classification_cache:{key:classificationKey(text,'press'),output:good}},
+   article('generate',0)
+  ]);
+  assert.equal((await flow.fillRadar(db,'2026-10-10',0,Date.now()+200000,async()=>{})).reason,'portal_target_reached');
+  assert.equal(calls,2);assert.equal(db.tables.articles[0].source_text,text);
+  assert.ok(db.tables.articles[0].classification_cache);
+  await flow.fillRadar(db,'2026-10-10',0,Date.now()+200000,async()=>{});assert.equal(calls,2);
+ }finally{delete (globalThis as any).__sourceText;delete (globalThis as any).__contextGenerate;await rm(dir,{recursive:true,force:true});}
 });
