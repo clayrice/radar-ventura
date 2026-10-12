@@ -43,6 +43,12 @@ function metaContent(html:string,key:string){
  for(const pattern of patterns){const match=html.match(pattern);if(match)return decodeHtml(match[1].trim());}
  return null;
 }
+export function pageCoverFromHtml(html:string,finalUrl:string){
+ const raw=metaContent(html,'og:image:secure_url')||metaContent(html,'og:image')||metaContent(html,'twitter:image');
+ const coverUrl=publicImageUrl(raw,finalUrl);if(!coverUrl)return {};
+ const caption=(metaContent(html,'og:image:alt')||metaContent(html,'twitter:image:alt'))?.replace(/\s+/g,' ').trim().slice(0,500)||null;
+ return {cover_url:coverUrl,cover_origin:'article',cover_caption:caption,cover_credit:null};
+}
 export async function pageCover(sourceUrl:string,allowedHosts:string[],fetcher:typeof fetch=fetch){
  const source=safeUrl(sourceUrl);if(!source||!allowedHosts.includes(new URL(source).hostname))return {};
  const response=await fetcher(source,{signal:AbortSignal.timeout(10000),redirect:'follow',headers:{'User-Agent':'Mozilla/5.0 (compatible; VenturaRadar/0.1; +https://ventura-ai.com)','Accept':'text/html,application/xhtml+xml'}});
@@ -51,8 +57,5 @@ export async function pageCover(sourceUrl:string,allowedHosts:string[],fetcher:t
  const reader=response.body?.getReader();if(!reader)return {};
  const decoder=new TextDecoder();let html='';let bytes=0;
  try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.length;if(bytes>1_500_000)break;html+=decoder.decode(value,{stream:true});if(/<\/head>/i.test(html))break;}html+=decoder.decode();}finally{await reader.cancel();}
- const raw=metaContent(html,'og:image:secure_url')||metaContent(html,'og:image')||metaContent(html,'twitter:image');
- const coverUrl=publicImageUrl(raw,finalUrl);if(!coverUrl)return {};
- const caption=(metaContent(html,'og:image:alt')||metaContent(html,'twitter:image:alt'))?.replace(/\s+/g,' ').trim().slice(0,500)||null;
- return {cover_url:coverUrl,cover_origin:'article',cover_caption:caption,cover_credit:null};
+ return pageCoverFromHtml(html,finalUrl);
 }

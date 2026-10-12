@@ -4,7 +4,7 @@ Implementado na branch feature/daily-radar-signup. Não houve migração remota,
 
 ## Configuração
 
-- Aplicar a migração 018_daily_subscribers.sql no Supabase do radar-ventura após revisão. As tabelas têm RLS e acesso exclusivo da service role; não usam usuários nem assinaturas pagas.
+- Aplicar a migração 020_daily_subscribers.sql no Supabase do radar-ventura após revisão. As tabelas têm RLS e acesso exclusivo da service role; não usam usuários nem assinaturas pagas.
 - Configurar NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY. DEMO_MODE=false no ambiente de validação conectado.
 - Configurar APP_URL com HTTPS público, RESEND_API_KEY, EMAIL_FROM com domínio verificado e UNSUBSCRIBE_SECRET aleatório de pelo menos 32 caracteres. Manter o segredo estável para preservar links.
 - Manter EMAIL_SEND_ENABLED=false e DAILY_EMAIL_SEND_ENABLED=false até validação autorizada. O formulário não salva nem envia quando os gates estão fechados. BILLING_ENABLED=false continua obrigatório durante validação.

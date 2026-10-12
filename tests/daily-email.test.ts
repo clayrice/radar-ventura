@@ -23,7 +23,7 @@ test('daily email requires three stories and links to the website with escaped c
 test('daily database: private subscribers, cooldown, reconfirmation, consent and unique deliveries',async()=>{
  const db=new PGlite();try{
  await db.exec('create role anon;create role authenticated;create role service_role bypassrls;');
- await db.exec(await readFile(new URL('../supabase/migrations/018_daily_subscribers.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/020_daily_subscribers.sql',import.meta.url),'utf8'));
  const first=(await db.query<any>("select * from request_daily_signup('test@example.com')")).rows[0];assert.equal(first.status,'pending');assert.ok(first.consent_at);
  assert.equal((await db.query("select * from request_daily_signup('test@example.com')")).rows.length,0);
  await db.exec("update daily_subscribers set requested_at=now()-interval '11 minutes',status='unsubscribed'");

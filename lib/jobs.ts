@@ -108,8 +108,8 @@ export async function runDaily(){
   const counts=await radarCounts(db,date);
   let instagram:Record<string,unknown>={instagram:'waiting_for_three_articles',instagram_published:0};
   if(counts.published===3&&covers.articles_with_images===3&&Date.now()<deadline-5000){
-   // Allow posting to use the remaining function budget; later cron runs resume safely.
-   instagram=await runInstagram(deadline+15000,date).catch(()=>({instagram:'failed',instagram_published:0,instagram_failures:1}));
+   // Keep posting inside the 60-second function ceiling and reserve final persistence.
+   instagram=await runInstagram(deadline-3000,date).catch(()=>({instagram:'failed',instagram_published:0,instagram_failures:1}));
   }
   const outcome=editionOutcome(counts.published,Number(instagram.instagram_published)||0,covers.articles_with_images,counts.published===3?String(instagram.instagram||'instagram_pending'):radar.reason);
   metrics={...metrics,...counts,...covers,...instagram,radar_date:date,attempt:attempts,status:outcome.status,reason:outcome.reason};
