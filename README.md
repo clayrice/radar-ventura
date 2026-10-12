@@ -203,3 +203,7 @@ A seção “E a gente com isso?” usa o campo `brazil_impact`, separado da rep
 `009_article_covers.sql` acrescenta URL, legenda e crédito. A capa e a legenda levam à matéria original. O job reconhece anexos de imagem e `media:content` do RSS; não inventa autoria nem usa imagens geradas. Quando a imagem externa falha ou não foi autorizada, uma capa gráfica da Ventura aparece com o título e o link para a reportagem.
 
 Na edição de 21/09, as quatro capas são gráficas da Ventura: as imagens externas da Axios não carregaram no site publicado, e as condições de reutilização das fotos da Axios e da AP ainda não foram confirmadas. Legenda e crédito não substituem licença de uso. O link da capa leva ao artigo com a imagem original.
+
+## Radar Diário gratuito
+
+Formulário na homepage, double opt-in via Resend, digest de três notícias e parceiro em destaque, com cancelamento independente da edição paga. Consulte [configuração e validação pendentes](docs/radar-diario-gratuito.md). O envio permanece desativado por padrão; o cron de e-mail não foi ativado.
