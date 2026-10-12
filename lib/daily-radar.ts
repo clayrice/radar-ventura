@@ -49,7 +49,7 @@ async function collect(db:Db,date:string,stage:number,deadline:number){
      if(Date.now()>deadline-6000)break;
      const url=item.link&&sourceArticleUrl(item.link,source.id);const published=new Date(item.isoDate||item.pubDate||'');
      const excerpt=(item.contentSnippet||item.summary||item.content||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,5000);
-     if(!url||!item.title||!Number.isFinite(published.getTime())||published.getTime()>Date.now()+60000||published.getTime()<Date.now()-days*86400000||excerpt.length<120){skipped++;continue;}
+     if(!url||!item.title||!Number.isFinite(published.getTime())||published.getTime()>Date.now()+60000||published.getTime()<Date.now()-days*86400000){skipped++;continue;}
      const insert=await db.from('articles').insert({...feedCover(item),source_id:source.id,source_kind:source.kind,source_name:source.name,source_url:url,title:item.title.slice(0,180),title_key:titleKey(item.title),excerpt,published_at:published.toISOString()}).select('id');
      if(insert.error&&insert.error.code!=='23505')throw insert.error;
      if(!insert.error)added++;

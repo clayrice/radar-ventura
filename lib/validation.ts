@@ -12,7 +12,7 @@ export const classificationSchema=z.object({
  title:z.string().min(10).max(180),summary:z.string().min(60).max(2400),category:z.enum(categories),
  sectors:z.array(z.enum(sectors)).min(1).max(7),publish:z.boolean(),
  brazil_impact:z.string().max(1000),human_angle:z.string().max(350),perspective_evidence:z.string().max(600),
- business_relevance:z.number().int().min(0).max(100),reader_interest:z.number().int().min(0).max(100),
+ business_relevance:z.number().int().min(0).max(100).describe("Utilidade empresarial de 0 a 100. 40 contextual, 60 clara, 80 forte; sete em dez corresponde a 70."),reader_interest:z.number().int().min(0).max(100).describe("Interesse de 0 a 100. 50 moderado, 80 forte; sete em dez corresponde a 70."),
  launch_importance:z.number().int().min(0).max(100)
 });
 export const editionSchema=z.object({headline:z.string().min(10).max(150),overview:z.array(z.object({article_id:z.string(),takeaway:z.string().min(15).max(500)})).min(1).max(3),relevant:z.array(z.object({article_id:z.string(),why:z.string().min(20).max(700)})).max(3),actions:z.array(z.object({title:z.string().min(5).max(150),detail:z.string().min(20).max(900),effort:z.string().max(70),capability:z.enum(capabilities)})).min(1).max(3)});

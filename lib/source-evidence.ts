@@ -1,5 +1,6 @@
+import {z} from 'zod';
 import {classificationSchema} from './validation';
-export const newsClassificationSchema=classificationSchema.extend({evidence_index:classificationSchema.shape.business_relevance});
+export const newsClassificationSchema=classificationSchema.extend({evidence_index:z.number().int().min(0).max(99).describe("Índice de um trecho fornecido em evidence_passages; não é uma nota editorial.")});
 export function evidencePassages(text:string){
  const passages:string[]=[];let current='';
  for(const word of text.replace(/\s+/g,' ').trim().split(' ')){
