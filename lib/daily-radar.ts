@@ -124,7 +124,7 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
      // Persist the original structured result before applying format validation.
      checked(await db.from('articles').update({classification_cache:{key,output:generated}}).eq('id',a.id).eq('status','queued'));
     }
-    const output={...generated,summary:normalizeRadarSummary(generated.summary)};const decision=editorialDecision(output,a.source_kind,text);
+    const output={...generated,summary:normalizeRadarSummary(generated.summary)};const decision=editorialDecision(output,a.source_kind,text,a.source_url);
     // Invalid formatting may retry; lack of evidence or editorial rejection is final.
     const formatError=decision.reason==='Texto precisa de três a quatro parágrafos';
     checked(await db.from('articles').update({title:output.title,summary:output.summary,brazil_impact:output.brazil_impact,category:output.category,sectors:output.sectors,human_angle:output.human_angle,perspective_attribution:a.source_name,perspective_evidence:output.perspective_evidence,editorial_score:Math.round((output.business_relevance+output.reader_interest)/2),status:decision.publish?'published':formatError&&a.attempts<2?'queued':'rejected',radar_date:decision.publish?date:null,attempts:a.attempts+1,next_attempt_at:new Date(Date.now()+retryDelay(a.attempts+1)).toISOString(),model:process.env.OPENAI_MODEL||'gpt-4.1-mini',last_error:decision.reason}).eq('id',a.id).eq('status','queued'));

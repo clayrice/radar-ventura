@@ -38,3 +38,10 @@ test('servidor resolve uma única evidência literal e recusa índice inventado'
  assert.equal(editorialDecision(resolveEvidence({...generated,evidence_index:99},passages),'press',text).publish,false);
  assert.ok(newsClassificationSchema.safeParse(generated).success);
 });
+
+test('contagem regressiva e venda de ingressos do Disrupt não passam com notas altas',()=>{
+ assert.equal(editorialDecision(output,'press',paragraph,'https://techcrunch.com/2026/10/11/48-hours-to-techcrunch-disrupt-2026-hear-directly-from-the-people-building-whats-next').reason,'Chamada promocional de evento');
+ assert.equal(editorialDecision(output,'press',paragraph,'https://techcrunch.com/2026/10/02/disrupt-2026-layoff-expo-plus-passes-available-for-75-dollars').publish,false);
+ assert.equal(editorialDecision(output,'press',paragraph,'https://techcrunch.com/2026/10/10/all-the-ai-agents-that-can-live-in-your-text-messages').publish,true);
+ assert.equal(editorialDecision(output,'press',paragraph,'https://techcrunch.com/2026/10/13/new-ai-product-announced-at-disrupt-2026').publish,true);
+});

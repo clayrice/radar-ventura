@@ -39,7 +39,8 @@ function editorialRequirement(output:z.infer<typeof classificationSchema>,source
  if(output.human_angle.trim().length<30||output.perspective_evidence.trim().length<30||!normalize(excerpt).includes(normalize(output.perspective_evidence)))return {publish:false,reason:'Perspectiva sem evidência no trecho da fonte'};
  return null;
 }
-export function editorialDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string){
+export function editorialDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string,sourceUrl=""){
+ try{const url=new URL(sourceUrl);if(url.hostname==="techcrunch.com"&&(/\d+-(?:hours|days)-(?:to|until)-techcrunch-disrupt-\d{4}/.test(url.pathname)||/disrupt-\d{4}.*(?:passes|tickets)|(?:passes|tickets).*disrupt-\d{4}/.test(url.pathname)))return {publish:false,reason:"Chamada promocional de evento"};}catch{}
  const required=editorialRequirement(output,sourceKind,excerpt);if(required)return required;
  if(!output.publish||output.business_relevance<40||Math.max(output.reader_interest,output.business_relevance)<50)return {publish:false,reason:'Baixa relevância ou interesse humano'};
  return {publish:true,reason:null};
