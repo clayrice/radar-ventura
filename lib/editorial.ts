@@ -4,6 +4,7 @@ import {classificationSchema} from './validation';
 export const editorialInstructions=`Você edita o radar diário da Ventura para empresários e empreendedores brasileiros. Escreva com clareza, sem jargão técnico e sem publicidade disfarçada.
 Abra a seleção para notícias, lançamentos úteis, casos reais, guias práticos e comparações. A edição busca três publicações e diversidade entre entender o que aconteceu, ver onde funciona e aprender como aproveitar. Essa composição é flexível: não force uma categoria quando as fontes do dia não a sustentarem.
 Use Business para acontecimentos empresariais; Work para trabalho e cotidiano; Backstage para pessoas, disputas e debates; Big launches para lançamentos e atualizações com utilidade empresarial; Guides para tutoriais e explicações práticas; Cases para experiências documentadas de empresas; Comparisons para avaliações comparativas fundamentadas. Não transforme um anúncio em caso comprovado nem uma lista promocional em comparação.
+Novas funcionalidades de LLMs são pauta obrigatória, especialmente ChatGPT e Claude. Inclua também atualizações de outros assistentes e modelos de linguagem quando houver uma capacidade nova verificável. Não rejeite uma atualização por ser incremental, por ter poucos pontos de interesse humano ou por parecer técnica: explique qual tarefa ela permite fazer ou melhorar para um empresário. Identifique a ferramenta e a funcionalidade, o que muda na prática, quem tem acesso, plano exigido, disponibilidade no Brasil e limites, somente quando a fonte informar. Em brazil_impact, proponha um exemplo concreto para vendas, atendimento, marketing, documentos, análise, decisões ou organização da equipe, com um primeiro teste e revisão humana. Não force ganho de produtividade nem disponibilidade local. Para atualizações verificadas, publish=true e business_relevance de pelo menos 60. Rumores, anúncios sem funcionalidade identificável e material insuficiente continuam exigindo apuração. Essa prioridade prevalece sobre a composição por categorias.
 Lançamentos não precisam ser excepcionais: considere mudança de preço, acesso no Brasil, facilidade de uso e capacidade útil para uma tarefa ou decisão. launch_importance mede a magnitude, mas não determina sozinho a publicação. Explique o que está realmente disponível e diferencie anúncio, demonstração e resultado observado. Detalhes de APIs, benchmarks isolados e papers sem aplicação compreensível têm baixa prioridade.
 Dê espaço a marketing, divulgação, vendas, atendimento, imagens, documentos, análise de dados, decisões, conhecimento da equipe e novas ofertas. Guias devem resolver uma tarefa específica com passos sustentados pela fonte, requisitos e limites. Comparações precisam de critérios e evidências, sem declarar um vencedor universal. Casos reais devem preservar contexto, limitações e atribuição dos resultados, sem prometer que outra empresa terá o mesmo retorno.
 Bastidores e debates continuam elegíveis. Diferencie opinião, previsão, acusação e fato, atribuindo declarações e preservando ressalvas. Não acrescente fofoca não verificada.
@@ -42,23 +43,35 @@ function editorialRequirement(output:z.infer<typeof classificationSchema>,source
 export function editorialDecision(output:z.infer<typeof classificationSchema>,sourceKind:string,excerpt:string,sourceUrl=""){
  try{const url=new URL(sourceUrl);if(url.hostname==="techcrunch.com"&&(/\d+-(?:hours|days)-(?:to|until)-techcrunch-disrupt-\d{4}/.test(url.pathname)||/disrupt-\d{4}.*(?:passes|tickets)|(?:passes|tickets).*disrupt-\d{4}/.test(url.pathname)))return {publish:false,reason:"Chamada promocional de evento"};}catch{}
  const required=editorialRequirement(output,sourceKind,excerpt);if(required)return required;
+ if(output.publish&&isLlmFeatureUpdate(output.title))return {publish:true,reason:null};
  if(!output.publish||output.business_relevance<40||Math.max(output.reader_interest,output.business_relevance)<50)return {publish:false,reason:'Baixa relevância ou interesse humano'};
  return {publish:true,reason:null};
 }
 // All selection paths share the same requirements; quota completion cannot bypass rejection.
 export const editorialFallbackDecision=editorialDecision;
 export const editorialCompletionDecision=editorialDecision;
-export function selectDailyCandidates<T extends {source_id:string;published_at:string}>(articles:T[],limit=10){
+// Identify feature-update headlines before the classification budget is spent.
+export function isLlmFeatureUpdate(title:string){
+ const value=normalize(title);
+ const product=/\b(?:chatgpt|claude|gemini|copilot|grok|llama|llms?|modelos? de linguagem|language models?)\b/.test(value);
+ const change=/\b(?:launch(?:es|ed)?|releases?|introduces?|adds?|gets?|rolls? out|can now|new features?|updates?|upgrades?|lança|lançou|estreia|ganha|recebe|adiciona|atualiza|atualização|novas? (?:funcionalidades?|funções|recursos?|ferramentas?)|passa a|agora (?:pode|permite))\b/.test(value);
+ const speculation=/\b(?:rumou?rs?|rumores?|may|might|could|poderá|pode lançar|plans to|planeja|pretende|vazamento)\b/.test(value);
+ return product&&change&&!speculation;
+}
+export function selectDailyCandidates<T extends {source_id:string;published_at:string;title?:string}>(articles:T[],limit=10){
  const selected:T[]=[];const perSource=new Map<string,number>();
- for(const article of articles){const count=perSource.get(article.source_id)||0;if(count>=2)continue;selected.push(article);perSource.set(article.source_id,count+1);if(selected.length>=limit)break;}
+ const ordered=[...articles.filter(a=>isLlmFeatureUpdate(a.title||"")),...articles.filter(a=>!isLlmFeatureUpdate(a.title||""))];
+ for(const article of ordered){const count=perSource.get(article.source_id)||0;if(count>=2&&!isLlmFeatureUpdate(article.title||""))continue;selected.push(article);perSource.set(article.source_id,count+1);if(selected.length>=limit)break;}
  return selected;
 }
 // Preserve recency within each category; keep launches from dominating the radar.
 export function dailyMix(articles:Article[],limit=12):Article[]{
- const regular=articles.filter(a=>a.category!=='Big launches');
+ const priority=articles.filter(a=>isLlmFeatureUpdate(a.title)).slice(0,limit);
+ const remaining=articles.filter(a=>!priority.some(p=>p.id===a.id));
+ const regular=remaining.filter(a=>a.category!=='Big launches');
  const launchLimit=Math.max(1,Math.floor(Math.min(regular.length,limit)/3));
- const launches=articles.filter(a=>a.category==='Big launches').slice(0,launchLimit);
- const pool=[...regular,...launches];const result:Article[]=[];const topics=['Business','Backstage','Big launches','Cases','Guides','Comparisons','Work'];
+ const launches=remaining.filter(a=>a.category==='Big launches').slice(0,launchLimit);
+ const pool=[...regular,...launches];const result:Article[]=[...priority];const topics=['Business','Backstage','Big launches','Cases','Guides','Comparisons','Work'];
  for(const bucket of [['Business','Backstage','Work','Big launches'],['Cases'],['Guides','Comparisons']]){const i=pool.findIndex(a=>bucket.includes(a.category));if(i>=0&&result.length<limit)result.push(pool.splice(i,1)[0]);}
  while(result.length<limit&&pool.length){let found=false;for(const topic of topics){const i=pool.findIndex(a=>a.category===topic);if(i>=0&&result.length<limit){result.push(pool.splice(i,1)[0]);found=true;}}if(!found)break;}
  const minimum=Math.min(3,limit,articles.length);for(const article of articles){if(result.length>=minimum)break;if(!result.some(item=>item.id===article.id))result.push(article);}
