@@ -30,6 +30,12 @@ test('daily delivery: gates, confirmed recipients, frozen retry, duplicates, can
  Object.assign(process.env,{DEMO_MODE:'false',EMAIL_SEND_ENABLED:'false',DAILY_EMAIL_SEND_ENABLED:'true',RESEND_API_KEY:'test',EMAIL_FROM:'test@example.com',APP_URL:'https://radar.example',UNSUBSCRIBE_SECRET:'s'.repeat(32)});
  globalThis.fetch=async(_input,init)=>{requests++;payloads.push(String(init?.body));if(fail)throw Error('timeout');return Response.json({id:'provider-'+requests});};
  assert.equal((await mail.runDailyMail()).status,'disabled');assert.equal(requests,0);
+ process.env.DAILY_CONFIRMATION_TEST_ENABLED='true';process.env.DAILY_CONFIRMATION_TEST_EMAIL='test@example.com';
+ assert.equal(mail.confirmationEnabled('test@example.com'),true);assert.equal(mail.confirmationEnabled('other@example.com'),false);
+ await assert.rejects(mail.sendConfirmationPayload('test@example.com',{to:['other@example.com']},'test-mismatch'));
+ await assert.rejects(mail.sendConfirmationPayload('other@example.com',{to:['other@example.com']},'test-unallowed'));
+ assert.equal((await mail.runDailyMail()).status,'disabled');assert.equal(requests,0);
+ process.env.DAILY_CONFIRMATION_TEST_ENABLED='false';
  process.env.EMAIL_SEND_ENABLED='true';process.env.DAILY_EMAIL_SEND_ENABLED='false';assert.equal((await mail.runDailyMail()).status,'disabled');assert.equal(requests,0);
  process.env.DAILY_EMAIL_SEND_ENABLED='true';locked=true;assert.equal((await mail.runDailyMail()).status,'busy');locked=false;
  tables.articles=articles.slice(1);assert.equal((await mail.runDailyMail()).status,'waiting_for_three_articles');assert.equal(requests,0);tables.articles=articles;
