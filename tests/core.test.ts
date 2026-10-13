@@ -26,7 +26,7 @@ test('perfil semanal recusa preferências fora das opções e excesso de áreas'
 });
 
 test('editorial exige fonte verificável e permite lançamentos úteis',()=>{
- const excerpt='A reportagem discute como a mudança afeta a confiança dos clientes no atendimento.';
+ const excerpt='A reportagem discute como a mudança afeta a confiança dos clientes no atendimento com inteligência artificial.';
  const output={brazil_impact:'Para uma pequena empresa brasileira, começar por respostas revisadas pela equipe permite avaliar a confiança do cliente antes de ampliar o atendimento automático.',title:'O que muda na confiança dos clientes',summary:[excerpt,excerpt,excerpt].join('\n\n'),category:'Business' as const,sectors:['Retail' as const],publish:true,human_angle:'A confiança dos clientes deve ser considerada antes de automatizar o atendimento.',perspective_evidence:excerpt,business_relevance:80,reader_interest:75,launch_importance:20};
  assert.equal(editorialDecision(output,'primary',excerpt).publish,false);
  assert.equal(editorialDecision(output,'press',excerpt).publish,true);
@@ -77,7 +77,7 @@ test('radar mistura assuntos e limita sequência de lançamentos',()=>{
 });
 
 test('guias e comparações úteis passam sem apelo de bastidores',()=>{
- const excerpt='A análise apresenta um método de revisão das propostas com exemplos e limitações.';
+ const excerpt='A análise apresenta um método de revisão das propostas com IA, exemplos e limitações.';
  const output={title:'Guia: revise uma proposta com IA',summary:[excerpt,excerpt,excerpt].join('\n\n'),category:'Guides' as const,sectors:['Other' as const],publish:true,brazil_impact:'Para quem administra uma pequena empresa brasileira, o método pode ser testado em uma proposta sem dados pessoais, mantendo a aprovação final com a equipe.',human_angle:'Revisar propostas com exemplos e limites documentados.',perspective_evidence:excerpt,business_relevance:85,reader_interest:35,launch_importance:0};
  assert.equal(editorialDecision(output,'analysis',excerpt).publish,true);
  assert.equal(editorialDecision({...output,category:'Comparisons'},'analysis',excerpt).publish,true);

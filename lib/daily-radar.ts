@@ -7,6 +7,7 @@ import {generate} from './ai';
 import {createNewsFeedParser,feedCover,pageCover,verifiedImageUrl} from './news-images';
 import {sourceContext} from './source-context';
 import {classificationKey,cachedClassification} from './classification-cache';
+import {cachedNewsScope,hasAiSubject,newsScopeDecision,newsScopeInstructions,newsScopeSchema} from './news-scope';
 import {DAILY_TARGET,SEARCH_STAGES,NewsBudgetError,retryDelay} from './daily-run-core';
 
 type Db=ReturnType<typeof adminDb>;
@@ -98,6 +99,26 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
      checked(await db.from('articles').update({attempts,status:attempts>=3?'review':'queued',next_attempt_at:new Date(Date.now()+300000).toISOString(),last_error:'insufficient_source_text'}).eq('id',a.id).eq('status','queued'));
      reason='source_text_pending';await save();continue;
     }
+    // Check the original report independently of the generated summary and reflection.
+    // Missing evidence is a final rejection; timeouts still use the existing retry path.
+    const key=classificationKey(text,a.source_kind);
+    if(!hasAiSubject(text)){
+     checked(await db.from('articles').update({status:'rejected',radar_date:null,last_error:'Relação com IA sem evidência na fonte'}).eq('id',a.id).eq('status','queued'));
+     await save();continue;
+    }
+    let scope=cachedNewsScope(a.classification_cache,key);
+    if(!scope){
+     if(Date.now()>deadline-12000){reason='time_budget_exhausted';break;}
+     scope=await generate(newsScopeSchema,'news_scope',newsScopeInstructions,{title:a.title,excerpt:text,evidence_passages:evidencePassages(text),source:a.source_name},Math.min(12000,deadline-Date.now()-5000));
+     const cache={key,scope};
+     checked(await db.from('articles').update({classification_cache:cache}).eq('id',a.id).eq('status','queued'));
+     a.classification_cache=cache;
+    }
+    const scopeDecision=newsScopeDecision(scope,text);
+    if(!scopeDecision.publish){
+     checked(await db.from('articles').update({status:'rejected',radar_date:null,last_error:scopeDecision.reason}).eq('id',a.id).eq('status','queued'));
+     await save();continue;
+    }
     // A candidate cannot be classified or published until its own source supplies an image.
     let cover:any=a.cover_url&&['feed','article'].includes(a.cover_origin||'')?{cover_url:a.cover_url,cover_origin:a.cover_origin}:{};
     if(cover.cover_url){const verified=await verifiedImageUrl(cover.cover_url);if(verified)cover.cover_url=verified;else cover={};}
@@ -114,7 +135,6 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
     }else if(cover.cover_url!==a.cover_url||cover.cover_origin!==a.cover_origin){
      checked(await db.from('articles').update(cover).eq('id',a.id).eq('status','queued'));Object.assign(a,cover);
     }
-    const key=classificationKey(text,a.source_kind);
     let generated=cachedClassification(a.classification_cache,key);
     if(!generated){
      if(Date.now()>deadline-12000){reason='time_budget_exhausted';break;}
@@ -122,7 +142,7 @@ export async function fillRadar(db:Db,date:string,initialStage:number,deadline:n
      const result=await generate(newsClassificationSchema,'news_brief',editorialInstructions+' Escolha evidence_index entre os índices de evidence_passages: use o trecho que sustenta human_angle. Não una trechos distintos. perspective_evidence será conferida e preenchida pelo servidor a partir desse índice.',{title:a.title,excerpt:text,evidence_passages:passages,source:a.source_name},Math.min(25000,deadline-Date.now()-5000));
      generated=resolveEvidence(result,passages);
      // Persist the original structured result before applying format validation.
-     checked(await db.from('articles').update({classification_cache:{key,output:generated}}).eq('id',a.id).eq('status','queued'));
+     checked(await db.from('articles').update({classification_cache:{key,scope,output:generated}}).eq('id',a.id).eq('status','queued'));
     }
     const output={...generated,summary:normalizeRadarSummary(generated.summary)};const decision=editorialDecision(output,a.source_kind,text,a.source_url);
     // Invalid formatting may retry; lack of evidence or editorial rejection is final.
