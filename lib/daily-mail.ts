@@ -1,5 +1,5 @@
 import 'server-only';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {adminDb,checked,isDemo} from './db';
 import {dailyToken,dailyEmail,validDailyToken} from './daily-email-core';
 import {radarDate} from './radar-dates';
@@ -39,7 +39,7 @@ export async function sendDailyTest(id:string,token:string){
  dailyConfig();
  if(!checked(await db.rpc('acquire_job',{lock_name:'daily-email',lock_owner:owner})))return {status:'busy'};
  try{
- const articles=checked(await db.from('articles').select('*').eq('status','published').eq('radar_date',date).order('id').limit(4)) as Article[];
+ const articles=checked(await db.from('articles').select('*').eq('status','published').eq('radar_date',date).order('editorial_score',{ascending:false}).order('published_at',{ascending:false}).order('id').limit(4)) as Article[];
  if(articles.length!==3)return {status:'waiting_for_three_articles'};
  let delivery=checked(await db.from('daily_deliveries').select('*').eq('subscriber_id',id).eq('radar_date',date).maybeSingle());
  if(delivery&&delivery.status!=='sending')return {status:delivery.status==='sent'?'already_sent':delivery.status};
@@ -63,12 +63,31 @@ export async function sendDailyTest(id:string,token:string){
  return {status:'sent'};
  }finally{checked(await db.rpc('release_job',{lock_name:'daily-email',lock_owner:owner}));}
 }
+// A manually requested preview can validate a revised template without changing
+// an already sent edition or resetting its delivery history.
+export async function sendDailyPreview(id:string,token:string){
+ if(isDemo()||! /^[a-f0-9-]{36}$/.test(id))return {status:'disabled'};
+ const db=adminDb(),date=radarDate();
+ const row=checked(await db.from('daily_subscribers').select('*').eq('id',id).maybeSingle());
+ if(!row||!confirmationTestAllowed(row.email)||row.status!=='active'||Date.now()-new Date(row.requested_at).getTime()>86400000||!validDailyToken('confirm',id,row.nonce,token,process.env.UNSUBSCRIBE_SECRET||''))return {status:'disabled'};
+ dailyConfig();
+ const articles=checked(await db.from('articles').select('*').eq('status','published').eq('radar_date',date).order('editorial_score',{ascending:false}).order('published_at',{ascending:false}).order('id').limit(4)) as Article[];
+ if(articles.length!==3)return {status:'waiting_for_three_articles'};
+ const partners=checked(await db.from('partners').select('*').eq('active',true).eq('placement','newsletter').or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`).order('id').limit(1)) as Partner[];
+ const unsubscribe=dailyLink('unsubscribe',row);
+ const payload={from:process.env.EMAIL_FROM,to:[row.email],...dailyEmail(date,articles,partners[0]||null,process.env.APP_URL!,unsubscribe),headers:{'List-Unsubscribe':`<${unsubscribe}>`,'List-Unsubscribe-Post':'List-Unsubscribe=One-Click'}};
+ const current=checked(await db.from('daily_subscribers').select('*').eq('id',id).single());
+ if(current?.status!=='active'||current.nonce!==row.nonce||!confirmationTestAllowed(current.email))return {status:'cancelled'};
+ const hash=createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+ await sendConfirmationPayload(current.email,payload,`ventura-daily-preview/${date}/${row.nonce}/${hash}`);
+ return {status:'sent'};
+}
 export async function runDailyMail(){
  if(!dailyEnabled())return {status:'disabled',sent:0};dailyConfig();
  const db=adminDb(),owner=randomUUID(),date=radarDate(),deadline=Date.now()+45000;
  if(!checked(await db.rpc('acquire_job',{lock_name:'daily-email',lock_owner:owner})))return {status:'busy',sent:0};
  try{
- const articles=checked(await db.from('articles').select('*').eq('status','published').eq('radar_date',date).order('id').limit(4)) as Article[];
+ const articles=checked(await db.from('articles').select('*').eq('status','published').eq('radar_date',date).order('editorial_score',{ascending:false}).order('published_at',{ascending:false}).order('id').limit(4)) as Article[];
  if(articles.length!==3)return {status:'waiting_for_three_articles',sent:0};
  const partners=checked(await db.from('partners').select('*').eq('active',true).eq('placement','newsletter').or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`).order('id').limit(1)) as Partner[];
  let sent=0,review=0,failures=0;

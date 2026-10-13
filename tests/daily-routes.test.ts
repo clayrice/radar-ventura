@@ -24,7 +24,7 @@ test('daily routes require explicit confirmation, support one-click cancellation
  const bundle=join(dir,'route.cjs');
  await build({entryPoints:[new URL('../app/radar-diario/[action]/route.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',plugins:[{name:'boundaries',setup(b){
  b.onResolve({filter:/^@\/lib\/(db|daily-mail)$/},a=>({path:a.path,namespace:'stub'}));
- b.onLoad({filter:/.*/,namespace:'stub'},a=>({loader:'js',contents:a.path.endsWith('/db')?`export const isDemo=()=>false;export const adminDb=()=>globalThis.__routeDb;export const checked=r=>{if(r.error)throw Error(r.error.message);return r.data;};`:`export const sendCancellationReceipt=async()=>{globalThis.__receiptCalls++;};export const dailyEnabled=()=>false;export const confirmationTestAllowed=email=>email==='test@example.com';export const sendDailyTest=async()=>{globalThis.__manualCalls++;return {status:'sent'};};`}));
+ b.onLoad({filter:/.*/,namespace:'stub'},a=>({loader:'js',contents:a.path.endsWith('/db')?`export const isDemo=()=>false;export const adminDb=()=>globalThis.__routeDb;export const checked=r=>{if(r.error)throw Error(r.error.message);return r.data;};`:`export const sendCancellationReceipt=async()=>{globalThis.__receiptCalls++;};export const dailyEnabled=()=>false;export const confirmationTestAllowed=email=>email==='test@example.com';export const sendDailyPreview=async()=>({status:'sent'});export const sendDailyTest=async()=>{globalThis.__manualCalls++;return {status:'sent'};};`}));
  }}]});
  const route=createRequire(import.meta.url)(bundle),id='11111111-1111-4111-8111-111111111111',nonce='route-nonce',secret='s'.repeat(32);
  process.env.UNSUBSCRIBE_SECRET=secret;
