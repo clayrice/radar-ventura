@@ -1,6 +1,6 @@
 # Radar Diário gratuito — validação pendente
 
-Implementado na branch feature/daily-radar-signup. Não houve migração remota, deploy, ativação de envio ou alteração de pagamentos.
+Implementado na branch feature/daily-radar-signup e publicado após aprovação. Em 13/10/2026, a migração 020 foi aplicada no Supabase do Radar. Cadastro, entrega da confirmação na caixa de entrada e confirmação por POST foram validados com um único endereço autorizado. Envios automáticos e pagamentos permanecem desativados.
 
 ## Configuração
 
@@ -33,3 +33,13 @@ Não houve teste visual em navegador nem envio real. A validação de e-mail e h
 ## Teste restrito de confirmação
 
 Para validar somente o e-mail de confirmação: manter EMAIL_SEND_ENABLED=false, DAILY_EMAIL_SEND_ENABLED=false e BILLING_ENABLED=false. Configurar DAILY_CONFIRMATION_TEST_ENABLED=true e DAILY_CONFIRMATION_TEST_EMAIL com o único endereço autorizado para teste. Esse modo permite cadastro e confirmação apenas para esse endereço; não habilita o digest diário. Exige a migração 020 e todas as credenciais normais do Supabase/Resend. Após validar confirmação e cancelamento, retornar DAILY_CONFIRMATION_TEST_ENABLED=false e remover o endereço de teste. Não versionar credenciais ou endereços pessoais.
+
+## Validação manual da edição e identidade visual
+
+As mensagens de confirmação e as edições diária e semanal usam a logo oficial fornecida no projeto, sem recriação tipográfica. As páginas de confirmação, cancelamento, erro e teste seguem o cabeçalho preto e as cores dos sites Ventura AI e Radar. O template usa tabelas e estilos inline, com fontes de apoio e fundo sólido quando o cliente não suporta gradientes. As páginas web são responsivas. Ainda é necessário conferir a renderização em clientes reais de e-mail.
+
+Para testar a edição com a newsletter automática bloqueada, use o link da confirmação recebida, substituindo apenas o caminho /radar-diario/confirm por /radar-diario/test. GET mostra a confirmação de envio; POST envia exclusivamente ao assinante ativo cuja identidade corresponde a DAILY_CONFIRMATION_TEST_EMAIL, com a flag DAILY_CONFIRMATION_TEST_ENABLED=true. Exige o token válido da confirmação, com validade de 24 horas. Não aceita destinatários fornecidos na requisição. O cron não executa esse modo. A edição exige exatamente três artigos publicados na data de Brasília, usa os mesmos links e seleção de parceiro da rotina diária e inclui o cancelamento assinado.
+
+O teste compartilha lock, payload congelado e registro de entrega com a rotina diária. Assim, a execução repetida não reenvia a mesma edição. Confere o status e nonce do assinante antes de enviar. Uma entrega com mais de 23 horas em tentativa vai para revisão. Após validar a edição e o cancelamento, desativar DAILY_CONFIRMATION_TEST_ENABLED. Ativação pública, cron e pagamentos exigem validação e autorização próprias. Se não existir parceiro elegível, mostrar o diretório, sem inventar patrocínio.
+
+O cancelamento confirmado também gera um recibo transacional com o mesmo design, quando o envio está autorizado pela configuração de produção ou pelo endereço de teste. GET não cancela nem envia recibo. POST repetido não repete o recibo; a chave de idempotência é vinculada ao nonce. Falha no recibo não impede o cancelamento, e o log não expõe dados pessoais.
