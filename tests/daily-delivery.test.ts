@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
+import {dailyToken} from '../lib/daily-email-core';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -44,5 +45,23 @@ test('daily delivery: gates, confirmed recipients, frozen retry, duplicates, can
  assert.equal((await mail.runDailyMail()).sent,0);assert.equal(requests,2);
  tables.daily_deliveries[0].status='sending';tables.daily_deliveries[0].started_at=new Date(Date.now()-24*3600000).toISOString();assert.equal((await mail.runDailyMail()).review,1);assert.equal(requests,2);
  tables.daily_subscribers[0].status='unsubscribed';assert.equal((await mail.runDailyMail()).sent,0);assert.equal(requests,2);
+
+ // Manual validation stays restricted even while the production gates are closed.
+ Object.assign(process.env,{EMAIL_SEND_ENABLED:'false',DAILY_EMAIL_SEND_ENABLED:'false',DAILY_CONFIRMATION_TEST_ENABLED:'true',DAILY_CONFIRMATION_TEST_EMAIL:'test@example.com'});
+ const id='11111111-1111-4111-8111-111111111111';
+ const subscriber={id,nonce:'test-nonce',email:'test@example.com',status:'active',requested_at:new Date().toISOString()};
+ tables.daily_subscribers=[subscriber];tables.daily_deliveries=[];
+ const token=dailyToken('confirm',id,subscriber.nonce,process.env.UNSUBSCRIBE_SECRET!);
+ const before=requests;
+ assert.equal((await mail.sendDailyTest(id,'0'.repeat(64))).status,'disabled');
+ subscriber.email='other@example.com';assert.equal((await mail.sendDailyTest(id,token)).status,'disabled');subscriber.email='test@example.com';
+ subscriber.requested_at=new Date(Date.now()-25*3600000).toISOString();assert.equal((await mail.sendDailyTest(id,token)).status,'disabled');subscriber.requested_at=new Date().toISOString();
+ tables.articles=articles.slice(1);assert.equal((await mail.sendDailyTest(id,token)).status,'waiting_for_three_articles');tables.articles=articles;
+ assert.equal(requests,before);
+ assert.equal((await mail.sendDailyTest(id,token)).status,'sent');assert.equal(requests,before+1);
+ const delivered=JSON.parse(payloads.at(-1)!);assert.deepEqual(delivered.to,['test@example.com']);assert.ok(delivered.text.includes('Cancelar inscrição'));
+ assert.equal((await mail.sendDailyTest(id,token)).status,'already_sent');assert.equal(requests,before+1);
+ assert.equal((await mail.runDailyMail()).status,'disabled');
+ subscriber.status='unsubscribed';assert.equal((await mail.sendDailyTest(id,token)).status,'disabled');assert.equal(requests,before+1);
  }finally{globalThis.fetch=originalFetch;delete (globalThis as any).__dailyDb;for(const key of Object.keys(process.env))if(!(key in previous))delete process.env[key];Object.assign(process.env,previous);await rm(dir,{recursive:true,force:true});}
 });
