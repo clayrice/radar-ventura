@@ -1,20 +1,20 @@
 import {adminDb,checked,isDemo} from '@/lib/db';
 import {validDailyToken} from '@/lib/daily-email-core';
-import {confirmationTestAllowed,dailyEnabled,sendDailyTest,sendCancellationReceipt} from '@/lib/daily-mail';
+import {confirmationTestAllowed,dailyEnabled,sendDailyTest,sendDailyPreview,sendCancellationReceipt} from '@/lib/daily-mail';
 import {radarPage as page} from '@/lib/radar-design';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
 export const maxDuration=60;
 async function handle(req:Request,context:{params:Promise<{action:string}>},mutate:boolean){
  const {action}=await context.params;const url=new URL(req.url),id=url.searchParams.get('id')||'',token=url.searchParams.get('token')||'';
- if(isDemo()||!['confirm','unsubscribe','test'].includes(action)||! /^[a-f0-9-]{36}$/.test(id))return page('Link inválido','<p>Solicite um novo cadastro na homepage.</p>',400);
+ if(isDemo()||!['confirm','unsubscribe','test','preview'].includes(action)||! /^[a-f0-9-]{36}$/.test(id))return page('Link inválido','<p>Solicite um novo cadastro na homepage.</p>',400);
  try{const db=adminDb(),row=checked(await db.from('daily_subscribers').select('*').eq('id',id).maybeSingle());
  const purpose=action==='unsubscribe'?'unsubscribe':'confirm';
  if(!row||!validDailyToken(purpose,id,row.nonce,token,process.env.UNSUBSCRIBE_SECRET||'')||(purpose==='confirm'&&(row.status==='unsubscribed'||Date.now()-new Date(row.requested_at).getTime()>86400000)))return page('Link inválido ou expirado','<p>Este link não pode mais ser usado. Solicite um novo cadastro na homepage para receber outro.</p>',400);
- if(action==='test'){
+ if(action==='test'||action==='preview'){
  if(!confirmationTestAllowed(row.email)||row.status!=='active')return page('Teste indisponível','<p>Este teste está restrito ao endereço autorizado e exige uma inscrição confirmada.</p>',403);
  if(!mutate)return page('Conferir sua edição','<p>Envie a edição de hoje apenas para o seu endereço de teste. Ela terá três notícias e o link para cancelar a inscrição.</p><form method="post"><button>Receber edição de teste</button></form>');
- const result=await sendDailyTest(id,token);
+ const result=await (action==='preview'?sendDailyPreview(id,token):sendDailyTest(id,token));
  if(result.status==='sent'||result.status==='already_sent')return page('Edição de teste enviada','<p>Confira sua caixa de entrada. A edição tem três notícias com links para o Radar e o cancelamento no rodapé.</p><p class="notice">O envio automático para a base continua desativado.</p>');
  if(result.status==='waiting_for_three_articles')return page('A edição ainda está em preparação','<p>O Radar precisa ter exatamente três notícias publicadas hoje antes de enviar esta edição.</p>',409);
  return page('Teste indisponível','<p>Não foi feito um novo envio. A inscrição pode estar cancelada ou uma tentativa anterior pode precisar de revisão.</p>',409);

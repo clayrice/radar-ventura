@@ -14,12 +14,12 @@ test('daily delivery: gates, confirmed recipients, frozen retry, duplicates, can
  const bundle=join(dir,'mail.cjs');
  await build({entryPoints:[new URL('../lib/daily-mail.ts',import.meta.url).pathname],outfile:bundle,bundle:true,platform:'node',format:'cjs',plugins:[{name:'boundaries',setup(b){
  b.onResolve({filter:/^(server-only|\.\/db|\.\/radar-dates)$/},a=>({path:a.path,namespace:'stub'}));
- b.onLoad({filter:/.*/,namespace:'stub'},a=>({loader:'js',contents:a.path==='server-only'?'':a.path==='./db'?`export const isDemo=()=>process.env.DEMO_MODE==='true';export const adminDb=()=>globalThis.__dailyDb;export const checked=r=>{if(r.error)throw Error(r.error.message);return r.data;};`:`export const radarDate=()=> '2026-10-09';`}));
+ b.onLoad({filter:/.*/,namespace:'stub'},a=>({loader:'js',contents:a.path==='server-only'?'':a.path==='./db'?`export const isDemo=()=>process.env.DEMO_MODE==='true';export const adminDb=()=>globalThis.__dailyDb;export const checked=r=>{if(r.error)throw Error(r.error.message);return r.data;};`:`export const radarDate=()=> '2026-10-09';export const formatRadarDate=date=>date;`}));
  }}]});
  const mail=createRequire(import.meta.url)(bundle);
- const articles=Array.from({length:3},(_,i)=>({id:String(i),title:'Story '+i,summary:'Summary',radar_date:'2026-10-09',status:'published'}));
+ const articles=Array.from({length:3},(_,i)=>({id:String(i),title:'Story '+i,summary:'Summary',radar_date:'2026-10-09',status:'published',source_name:'Jornal',source_url:'https://source.example/story',published_at:'2026-10-09',category:'Business',sectors:[]}));
  const tables:Record<string,any[]>={articles,partners:[],daily_deliveries:[],daily_subscribers:[{id:'a',nonce:'na',email:'a@example.com',status:'active'},{id:'pending',nonce:'np',email:'p@example.com',status:'pending'},{id:'cancelled',nonce:'nc',email:'c@example.com',status:'unsubscribed'}]};
- let locked=false,requests=0,fail=false;const payloads:string[]=[];
+ let locked=false,requests=0,fail=false;const payloads:string[]=[];const keys:string[]=[];
  const db={rpc:async(name:string)=>({data:name==='acquire_job'?!locked:true,error:null}),from(table:string){let predicates:((r:any)=>boolean)[]=[],mutation:string|null=null,payload:any,single=false,start=0,end=Infinity;
  const q:any={select(){return q},eq(k:string,v:any){predicates.push(r=>r[k]===v);return q},order(){return q},or(){return q},range(a:number,b:number){start=a;end=b;return q},limit(n:number){end=n-1;return q},maybeSingle(){single=true;return q},single(){single=true;return q},insert(p:any){mutation='insert';payload=p;return q},update(p:any){mutation='update';payload=p;return q},then(resolve:any,reject:any){
  let rows=tables[table].filter(r=>predicates.every(f=>f(r))).slice(start,end+1);
@@ -29,7 +29,7 @@ test('daily delivery: gates, confirmed recipients, frozen retry, duplicates, can
  }};return q;}};
  (globalThis as any).__dailyDb=db;
  Object.assign(process.env,{DEMO_MODE:'false',EMAIL_SEND_ENABLED:'false',DAILY_EMAIL_SEND_ENABLED:'true',RESEND_API_KEY:'test',EMAIL_FROM:'test@example.com',APP_URL:'https://radar.example',UNSUBSCRIBE_SECRET:'s'.repeat(32)});
- globalThis.fetch=async(_input,init)=>{requests++;payloads.push(String(init?.body));if(fail)throw Error('timeout');return Response.json({id:'provider-'+requests});};
+ globalThis.fetch=async(_input,init)=>{requests++;payloads.push(String(init?.body));keys.push(String((init?.headers as any)?.['Idempotency-Key']));if(fail)throw Error('timeout');return Response.json({id:'provider-'+requests});};
  assert.equal((await mail.runDailyMail()).status,'disabled');assert.equal(requests,0);
  process.env.DAILY_CONFIRMATION_TEST_ENABLED='true';process.env.DAILY_CONFIRMATION_TEST_EMAIL='test@example.com';
  assert.equal(mail.confirmationEnabled('test@example.com'),true);assert.equal(mail.confirmationEnabled('other@example.com'),false);
@@ -62,6 +62,9 @@ test('daily delivery: gates, confirmed recipients, frozen retry, duplicates, can
  const delivered=JSON.parse(payloads.at(-1)!);assert.deepEqual(delivered.to,['test@example.com']);assert.ok(delivered.text.includes('Cancelar inscrição'));
  assert.equal((await mail.sendDailyTest(id,token)).status,'already_sent');assert.equal(requests,before+1);
  assert.equal((await mail.runDailyMail()).status,'disabled');
- subscriber.status='unsubscribed';assert.equal((await mail.sendDailyTest(id,token)).status,'disabled');assert.equal(requests,before+1);
+ assert.equal((await mail.sendDailyPreview(id,token)).status,'sent');
+ assert.equal((await mail.sendDailyPreview(id,token)).status,'sent');assert.equal(keys.at(-1),keys.at(-2));assert.ok(keys.at(-1)?.startsWith('ventura-daily-preview/'));
+ assert.equal(tables.daily_deliveries.length,1);assert.equal(tables.daily_deliveries[0].status,'sent');
+ subscriber.status='unsubscribed';assert.equal((await mail.sendDailyTest(id,token)).status,'disabled');assert.equal((await mail.sendDailyPreview(id,token)).status,'disabled');assert.equal(requests,before+3);
  }finally{globalThis.fetch=originalFetch;delete (globalThis as any).__dailyDb;for(const key of Object.keys(process.env))if(!(key in previous))delete process.env[key];Object.assign(process.env,previous);await rm(dir,{recursive:true,force:true});}
 });

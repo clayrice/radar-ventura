@@ -8,10 +8,10 @@ import {formatRadarDate} from '@/lib/radar-dates';
 export const dynamic='force-dynamic';
 export const metadata:Metadata={title:'Arquivo do Radar',description:'Edições do Radar Ventura sobre inteligência artificial, negócios e trabalho.'};
 
-export default async function ArchivePage(){
- const editions=await archiveEditions();
+export default async function ArchivePage({searchParams}:{searchParams:Promise<{edicao?:string}>}){
+ const {edicao}=await searchParams;const editions=await archiveEditions(edicao);
  return <main id="main" className="wrap archive-page">
-  <header className="page-heading archive-heading"><span className="eyebrow">RADAR VENTURA</span><h1>Arquivo do Radar</h1><p>Releia as histórias, os debates e as mudanças que marcaram cada edição.</p><Link className="text-link" href="/">Voltar ao Radar de hoje <ArrowUpRight size={15}/></Link></header>
+  <header className="page-heading archive-heading"><span className="eyebrow">RADAR VENTURA</span><h1>Arquivo do Radar</h1><p>Releia as histórias, os debates e as mudanças que marcaram cada edição.</p><Link className="text-link" href="/">Voltar ao Radar de hoje <ArrowUpRight size={15}/></Link>{edicao&&<Link className="text-link" href="/arquivo">Ver todas as edições <ArrowUpRight size={15}/></Link>}</header>
   {editions.map(edition=><section className="archive-edition" key={edition.date} aria-labelledby={`edition-${edition.date}`}><div className="archive-edition-head"><div><span className="mini-label">EDIÇÃO</span><h2 id={`edition-${edition.date}`}>{formatRadarDate(edition.date)}</h2></div><span className="mini-label">{edition.articles.length} {edition.articles.length===1?'NOTÍCIA':'NOTÍCIAS'}</span></div><NewsFeed articles={edition.articles}/></section>)}
   {!editions.length&&<section className="empty archive-empty"><h2>O arquivo começa em breve</h2><p>As edições aparecerão aqui conforme o Radar for publicado.</p></section>}
  </main>;
