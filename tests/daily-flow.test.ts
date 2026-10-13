@@ -21,8 +21,8 @@ function database(initial:Row[]){
   }};return q;
  }};
 }
-const evidence='Uma reportagem independente documentou como a equipe mudou suas tarefas após avaliar a ferramenta.';
-const good={title:'Uma mudança documentada',summary:('Uma reportagem apresenta fatos verificáveis e contexto suficiente sobre a decisão da empresa.\n\n').repeat(3).trim(),brazil_impact:'O empreendedor brasileiro pode usar esse exemplo como ponto de partida para avaliar uma tarefa específica da equipe.',category:'Business',sectors:['Retail'],publish:true,human_angle:evidence,perspective_evidence:evidence,business_relevance:80,reader_interest:80,launch_importance:0,evidence_index:0};
+const evidence='Uma reportagem independente documentou como a equipe mudou suas tarefas após avaliar inteligência artificial no atendimento.';
+const good={title:'Uma mudança documentada',summary:('Uma reportagem apresenta fatos verificáveis e contexto suficiente sobre a decisão da empresa.\n\n').repeat(3).trim(),brazil_impact:'O empreendedor brasileiro pode usar esse exemplo como ponto de partida para avaliar uma tarefa específica da equipe.',category:'Business',sectors:['Retail'],publish:true,human_angle:evidence,perspective_evidence:evidence,business_relevance:80,reader_interest:80,launch_importance:0,evidence_index:0,ai_is_central:true,business_value:'clear',business_reason:'A fonte descreve uma capacidade de inteligência artificial para melhorar o atendimento de clientes.',ai_evidence_index:0,business_evidence_index:0};
 const article=(id:string,days:number,status='queued'):Row=>({id,title:id,source_id:id,source_kind:'press',source_name:'Fonte',excerpt:evidence,source_text:(evidence+' ').repeat(8),cover_url:`https://cdn.example.com/${id}.jpg`,cover_origin:'feed',attempts:0,status,published_at:new Date(Date.now()-days*86400000).toISOString(),source_text_checked_at:new Date().toISOString(),next_attempt_at:new Date(0).toISOString()});
 
 test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar quarto item',async()=>{
@@ -53,6 +53,28 @@ test('pipeline real amplia busca, exclui rejeição/erro, retoma sem publicar qu
  const short=database([article('waiting',0.1)]);
  const interrupted=await flow.fillRadar(short,date,0,Date.now()+1000,async()=>{});
  assert.equal(interrupted.reason,'time_budget_exhausted');assert.equal(await flow.portalCount(short,date),0);
+ // An old permissive summary, an incidental AI mention and a weak business angle
+ // cannot enter publication. Non-AI reports never reach either model call.
+ const beforeScope=calls.length;
+ (globalThis as any).__radarGenerate=async(input:Row)=>{
+  calls.push(input.title);
+  return {...good,ai_is_central:input.title!=='incidental',business_value:input.title==='paper'?'weak':'clear'};
+ };
+ const outOfScope=database([
+  {...article('measles',0),source_text:'A woman died of measles in Pennsylvania. Vaccination rates have declined. '.repeat(12)},
+  {...article('iphone-game',0),source_text:"No Man's Sky comes to iPhone and iPad with procedural generation and touch controls. ".repeat(12)},
+  {...article('incidental',0),source_text:'The game launch adds touch controls. The maker mentioned AI in an unrelated interview. '.repeat(12)},
+  {...article('paper',0),source_text:'An AI paper improves a benchmark but identifies no practical application for businesses. '.repeat(12)},
+  {...article('useful',0)},
+ ]);
+ const {classificationKey}=await import('../lib/classification-cache');
+ const incidental=outOfScope.tables.articles.find(r=>r.id==='incidental')!;
+ incidental.classification_cache={key:classificationKey(incidental.source_text,'press'),output:good};
+ await flow.fillRadar(outOfScope,date,0,Date.now()+200000,async()=>{});
+ assert.deepEqual(outOfScope.tables.articles.filter(r=>r.status==='published').map(r=>r.id),['useful']);
+ assert.equal(outOfScope.tables.articles.find(r=>r.id==='incidental')!.last_error,'IA não é assunto central da reportagem');
+ assert.equal(outOfScope.tables.articles.find(r=>r.id==='paper')!.last_error,'Falta utilidade empresarial clara sustentada pela fonte');
+ assert.deepEqual(calls.slice(beforeScope),['incidental','paper','useful','useful']);
  }finally{delete (globalThis as any).__radarGenerate;delete (globalThis as any).__verifyImage;await rm(dir,{recursive:true,force:true});}
 });
 
@@ -105,12 +127,12 @@ test('texto completo alimenta o filtro e cache evita chamadas repetidas numa ret
   let calls=0;(globalThis as any).__contextGenerate=async(input:Row)=>{calls++;assert.equal(input.excerpt,text);return good;};
   const db=database([
    {...article('hydrate',0),source_text:null,source_text_checked_at:null,excerpt:'Resumo curto sem a evidência necessária.'},
-   {...article('cached',0),classification_cache:{key:classificationKey(text,'press'),output:good}},
+   {...article('cached',0),classification_cache:{key:classificationKey(text,'press'),scope:good,output:good}},
    article('generate',0)
   ]);
   assert.equal((await flow.fillRadar(db,'2026-10-10',0,Date.now()+200000,async()=>{})).reason,'portal_target_reached');
-  assert.equal(calls,2);assert.equal(db.tables.articles[0].source_text,text);
+  assert.equal(calls,4);assert.equal(db.tables.articles[0].source_text,text);
   assert.ok(db.tables.articles[0].classification_cache);
-  await flow.fillRadar(db,'2026-10-10',0,Date.now()+200000,async()=>{});assert.equal(calls,2);
+  await flow.fillRadar(db,'2026-10-10',0,Date.now()+200000,async()=>{});assert.equal(calls,4);
  }finally{delete (globalThis as any).__sourceText;delete (globalThis as any).__contextGenerate;await rm(dir,{recursive:true,force:true});}
 });

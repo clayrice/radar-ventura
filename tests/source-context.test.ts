@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {extractArticleText,sourceContext} from '../lib/source-context';
 import {cachedClassification,classificationKey} from '../lib/classification-cache';
-import {editorialDecision,editorialInstructions} from '../lib/editorial';
+import {editorialDecision,editorialInstructions,isLlmFeatureUpdate,selectDailyCandidates,dailyMix} from '../lib/editorial';
 const paragraph='An independent report describes how a small business evaluated artificial intelligence for its customer service team, measured the results and kept human review for complex requests.';
 const html=`<html><head><meta property="og:image" content="https://cdn.example.com/photo.jpg"></head><body><nav><p>Navigation advertising</p></nav><article><p>${paragraph}</p><p>${paragraph} The project took place over several weeks.</p><p>${paragraph} Staff compared responses and recorded errors.</p><p>${paragraph} The company has not expanded the test yet.</p><aside><p>Sign up for our newsletter</p></aside></article></body></html>`;
 test('extrai reportagem e capa, excluindo menus e chamadas de assinatura',async()=>{
@@ -44,4 +44,24 @@ test('contagem regressiva e venda de ingressos do Disrupt não passam com notas 
  assert.equal(editorialDecision(output,'press',paragraph,'https://techcrunch.com/2026/10/02/disrupt-2026-layoff-expo-plus-passes-available-for-75-dollars').publish,false);
  assert.equal(editorialDecision(output,'press',paragraph,'https://techcrunch.com/2026/10/10/all-the-ai-agents-that-can-live-in-your-text-messages').publish,true);
  assert.equal(editorialDecision(output,'press',paragraph,'https://techcrunch.com/2026/10/13/new-ai-product-announced-at-disrupt-2026').publish,true);
+});
+
+
+test('funcionalidades de LLMs têm prioridade, sem classificar rumores e notícias financeiras como atualização',()=>{
+ assert.equal(isLlmFeatureUpdate('ChatGPT can now compare spreadsheets'),true);
+ assert.equal(isLlmFeatureUpdate('Claude ganha nova ferramenta para documentos'),true);
+ assert.equal(isLlmFeatureUpdate('Gemini adds a new research tool'),true);
+ assert.equal(isLlmFeatureUpdate('ChatGPT may launch a new tool'),false);
+ assert.equal(isLlmFeatureUpdate('OpenAI raises funding for ChatGPT'),false);
+ const rows=[{source_id:'press',published_at:'2026-10-12',title:'Debate sobre emprego'},...['ChatGPT lança ferramenta de documentos','Claude ganha recurso de pesquisa','Gemini recebe nova função'].map(title=>({source_id:'same',published_at:'2026-10-11',title}))];
+ assert.deepEqual(selectDailyCandidates(rows,3).map(a=>a.title),rows.slice(1).map(a=>a.title));
+});
+test('atualização de LLM passa sem nota de curiosidade, mas mantém evidência e reflexão empresarial',()=>{
+ const launch={...output,title:'Claude ganha nova ferramenta para documentos',category:'Big launches' as const,business_relevance:20,reader_interest:10};
+ assert.equal(editorialDecision(launch,'press',paragraph).publish,true);
+ assert.equal(editorialDecision({...launch,perspective_evidence:'Trecho inexistente que não está na fonte consultada.'},'press',paragraph).publish,false);
+ assert.equal(editorialDecision({...launch,brazil_impact:''},'press',paragraph).publish,false);
+ assert.equal(editorialDecision({...launch,publish:false},'press',paragraph).publish,false);
+ const articles=['ChatGPT lança ferramenta de documentos','Claude ganha recurso de pesquisa','Gemini recebe nova função'].map((title,index)=>({...launch,id:String(index),title,source_name:'Fonte',source_url:'https://example.com',source_id:'press',published_at:'2026-10-11'}));
+ assert.equal(dailyMix(articles as any,3).length,3);
 });
