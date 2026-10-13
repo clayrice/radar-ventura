@@ -7,10 +7,20 @@ import {retryDelivery} from './pipeline-core';
 import {safeUrl} from './validation';
 import type {Article,Partner} from './types';
 export function dailyEnabled(){return !isDemo()&&process.env.EMAIL_SEND_ENABLED==='true'&&process.env.DAILY_EMAIL_SEND_ENABLED==='true';}
+export function confirmationTestAllowed(email:string){return !isDemo()&&process.env.DAILY_CONFIRMATION_TEST_ENABLED==='true'&&email.trim().toLowerCase()===(process.env.DAILY_CONFIRMATION_TEST_EMAIL||'').trim().toLowerCase();}
+export function confirmationEnabled(email:string){return dailyEnabled()||confirmationTestAllowed(email);}
 export function dailyConfig(){if(!safeUrl(process.env.APP_URL||'')||!process.env.EMAIL_FROM||!process.env.RESEND_API_KEY||(process.env.UNSUBSCRIBE_SECRET||'').length<32)throw Error('Daily email configuration incomplete');}
 export function dailyLink(action:'confirm'|'unsubscribe',row:{id:string;nonce:string}){const url=new URL(`/radar-diario/${action}`,process.env.APP_URL);url.searchParams.set('id',row.id);url.searchParams.set('token',dailyToken(action,row.id,row.nonce,process.env.UNSUBSCRIBE_SECRET!));return url.toString();}
 export async function sendDailyPayload(payload:Record<string,unknown>,key:string){
- if(!dailyEnabled())throw Error('Daily delivery disabled');dailyConfig();
+ if(!dailyEnabled())throw Error('Daily delivery disabled');return sendPayload(payload,key);
+}
+export async function sendConfirmationPayload(email:string,payload:Record<string,unknown>,key:string){
+ if(!confirmationEnabled(email))throw Error('Confirmation delivery disabled');
+ if(JSON.stringify(payload.to)!==JSON.stringify([email]))throw Error('Confirmation recipient mismatch');
+ return sendPayload(payload,key);
+}
+async function sendPayload(payload:Record<string,unknown>,key:string){
+ dailyConfig();
  const response=await fetch('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify(payload)});
  const receipt=await response.json();if(!response.ok||!receipt.id)throw Error('Daily email provider failure');return receipt.id as string;
 }

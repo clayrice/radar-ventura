@@ -29,3 +29,7 @@ Os testes locais usam providers simulados e PostgreSQL embarcado. Não comprovam
 Em 09/10/2026: `npm test` (49 testes aprovados), `npm run typecheck` e `npm run build` aprovados. O comando de testes usa `node --import tsx` para evitar a dependência do socket IPC do launcher tsx em ambientes restritos. Inclui execução do fluxo real de entrega com banco/provedor simulados: gates fechados, lock, ausência de três notícias, apenas destinatários confirmados, payload preservado após timeout, prevenção de envio duplicado, cancelamento e revisão após expiração da janela de idempotência.
 
 Não houve teste visual em navegador nem envio real. A validação de e-mail e homepage descrita no checklist permanece pendente.
+
+## Teste restrito de confirmação
+
+Para validar somente o e-mail de confirmação: manter EMAIL_SEND_ENABLED=false, DAILY_EMAIL_SEND_ENABLED=false e BILLING_ENABLED=false. Configurar DAILY_CONFIRMATION_TEST_ENABLED=true e DAILY_CONFIRMATION_TEST_EMAIL com o único endereço autorizado para teste. Esse modo permite cadastro e confirmação apenas para esse endereço; não habilita o digest diário. Exige a migração 020 e todas as credenciais normais do Supabase/Resend. Após validar confirmação e cancelamento, retornar DAILY_CONFIRMATION_TEST_ENABLED=false e remover o endereço de teste. Não versionar credenciais ou endereços pessoais.
