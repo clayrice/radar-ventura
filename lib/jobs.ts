@@ -37,14 +37,14 @@ async function generateWeekly(db:Db,deadline:number){
  if(!queued?.length||Date.now()>deadline)return {generated:0};const e=queued[0];
  const profile=checked(await db.from('profiles').select('*').eq('user_id',e.user_id).maybeSingle()) as Profile|null;
  const sub=checked(await db.from('subscriptions').select('status').eq('user_id',e.user_id).maybeSingle());
- if(!profile?.email_opt_in||sub?.status!=='active'){checked(await db.from('editions').update({status:'cancelled'}).eq('id',e.id));return {generated:0};}
+ if(!profile||sub?.status!=='active'){checked(await db.from('editions').update({status:'cancelled'}).eq('id',e.id));return {generated:0};}
  const start=new Date(`${week}T00:00:00Z`);start.setUTCDate(start.getUTCDate()-7);
  const articles=checked(await db.from('articles').select('id,title,summary,brazil_impact,cover_url,cover_caption,cover_credit,source_name,source_url,published_at,category,sectors,human_angle,perspective_attribution,editorial_score').eq('status','published').gte('published_at',start.toISOString()).lt('published_at',`${week}T00:00:00Z`).order('published_at',{ascending:false}).limit(24)) as Article[];
  if(!articles.length)return {generated:0,waiting_for_articles:true};
  checked(await db.from('editions').update({attempts:e.attempts+1}).eq('id',e.id));
- try{const raw=await generate(editionSchema,'weekly_briefing',weeklyInstructions,{profile:{sector:profile.sector,size:profile.size,objective:profile.objective||profile.goals,interests:profile.interests||[],business_model:profile.business_model,ai_level:profile.ai_level,preferences:profile.preferences||null},articles});
+ try{const raw=await generate(editionSchema,'weekly_briefing',weeklyInstructions,{profile:{sector:profile.sector,size:profile.size,objective:profile.objective||profile.goals,interests:profile.interests||[],business_model:profile.business_model,ai_level:profile.ai_level,preferences:profile.preferences||null},articles},Math.min(40000,Math.max(1000,deadline-Date.now())));
  const content=validateEdition(raw,articles);const partners=matchPartners(checked(await db.from('partners').select('*').eq('active',true).eq('placement','newsletter')) as Partner[],profile.sector,content);
- checked(await db.from('editions').update({status:'ready',content,articles,partners,model:model(),last_error:null}).eq('id',e.id));return {generated:1};
+ checked(await db.from('editions').update({status:profile.email_opt_in?'ready':'available',content,articles,partners,model:model(),last_error:null}).eq('id',e.id));return {generated:1};
  }catch(error){checked(await db.from('editions').update({last_error:err(error),status:e.attempts>=2?'failed':'queued'}).eq('id',e.id));return {generated:0,generation_failures:1};}
 }
 async function deliver(db:Db,deadline:number){if(process.env.EMAIL_SEND_ENABLED!=='true')return {sent:0,delivery:'disabled'};
@@ -53,7 +53,8 @@ async function deliver(db:Db,deadline:number){if(process.env.EMAIL_SEND_ENABLED!
  const pending=checked(await db.from('editions').select('*').in('status',['ready','sending']).order('week_start').limit(3));
  for(const row of pending||[]){if(Date.now()>deadline)break;const e=row as Edition & {user_id:string;send_started_at:string|null;delivery_payload:Record<string,unknown>|null};
  const profile=checked(await db.from('profiles').select('email_opt_in').eq('user_id',e.user_id).maybeSingle());const sub=checked(await db.from('subscriptions').select('status').eq('user_id',e.user_id).maybeSingle());
- if(!profile?.email_opt_in||sub?.status!=='active'){checked(await db.from('editions').update({status:'cancelled'}).eq('id',e.id));continue;}
+ if(sub?.status!=='active'){checked(await db.from('editions').update({status:'cancelled'}).eq('id',e.id));continue;}
+ if(!profile?.email_opt_in){checked(await db.from('editions').update({status:'available'}).eq('id',e.id));continue;}
  // Resend retains idempotency keys for 24h. After 23h, stop and require provider reconciliation.
  if(!retryDelivery(e.send_started_at)){review++;checked(await db.from('editions').update({status:'review',last_error:'Reconcile provider delivery before retrying: idempotency window expired'}).eq('id',e.id));continue;}
  try{
@@ -119,7 +120,7 @@ export async function runDaily(){
   console.info('radar_daily',JSON.stringify(metrics));
   // Customer work has its own budget and cannot turn an incomplete edition into success.
   if(Date.now()<deadline-45000){
-   try{await hydratePublishedCovers(db,deadline-30000);await generateWeekly(db,deadline-30000);await generateRoadmaps(db,deadline-30000);await deliver(db,deadline-12000);}catch{console.error('radar_auxiliary_jobs_failed');}
+   try{await hydratePublishedCovers(db,deadline-30000);await generateRoadmaps(db,deadline-30000);await runWeekly(deadline-12000);}catch{console.error('radar_auxiliary_jobs_failed');}
   }
   return metrics;
  }catch(error){
@@ -127,4 +128,24 @@ export async function runDaily(){
   checked(await db.from('radar_editions').update({status:'pending',last_reason:'worker_failure',next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq('radar_date',date));
   throw error;
  }finally{checked(await db.rpc('release_job',{lock_name:'daily',lock_owner:owner}));}
+}
+
+// Weekly subscriptions have their own execution budget and lock, independent of news collection.
+export async function runWeekly(deadline=Date.now()+50000){
+ if(isDemo()||process.env.WEEKLY_JOB_ENABLED!=='true')return {status:'disabled',generated:0,sent:0};
+ const db=adminDb(),owner=randomUUID();
+ if(!checked(await db.rpc('acquire_job',{lock_name:'weekly',lock_owner:owner})))return {status:'locked',generated:0,sent:0};
+ let run:{id:string}|null=null;
+ try{
+ run=checked(await db.from('job_runs').insert({job:'weekly'}).select('id').single());
+ checked(await db.from('subscriptions').update({status:'inactive'}).eq('status','active').lte('expires_at',new Date().toISOString()));
+ // Deliver completed work first; reserve time for delivery after one generation.
+ const delivered=await deliver(db,Math.min(deadline,Date.now()+10000));
+ const generated=await generateWeekly(db,deadline-10000);
+ const latest=Date.now()<deadline-5000?await deliver(db,deadline):{sent:0};
+ const metrics={...generated,...delivered,sent:(delivered.sent||0)+(latest.sent||0),delivery_review:(delivered.delivery_review||0)+('delivery_review' in latest?Number(latest.delivery_review)||0:0)};
+ checked(await db.from('job_runs').update({status:'completed',finished_at:new Date().toISOString(),metrics}).eq('id',run!.id));
+ return {status:'completed',...metrics};
+ }catch(error){if(run)checked(await db.from('job_runs').update({status:'failed',finished_at:new Date().toISOString(),error:err(error)}).eq('id',run.id));throw error;}
+ finally{checked(await db.rpc('release_job',{lock_name:'weekly',lock_owner:owner}));}
 }

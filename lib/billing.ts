@@ -1,7 +1,7 @@
 import 'server-only';
 import {adminDb,checked} from './db';
 import {productNames,prices} from './products';
-export const billingEnabled=()=>process.env.BILLING_ENABLED==='true'&&!!process.env.ASAAS_API_KEY;
+export {billingEnabled} from './billing-config';
 export function priceFor(product:string){const value=Number(prices[product]);return productNames[product]&&Number.isSafeInteger(value)&&value>0?value:null;}
 export function asaasBase(){return process.env.ASAAS_ENV==='production'?'https://api.asaas.com/v3':'https://api-sandbox.asaas.com/v3';}
 export async function asaas(path:string,init:RequestInit={}){const r=await fetch(asaasBase()+path,{...init,signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/json',access_token:process.env.ASAAS_API_KEY!,'User-Agent':'VenturaAI/0.1',...init.headers}});if(!r.ok)throw new Error(`Asaas HTTP ${r.status}`);return r.json();}

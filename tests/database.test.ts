@@ -50,5 +50,9 @@ test('PostgreSQL: isolamento, pagamentos, cotas e idempotência',async()=>{
  await assert.rejects(db.exec(`insert into instagram_posts(article_id,account_id,radar_date,slot,title,caption,source_name,cover_url,cover_origin) values('${socialArticle}','456',current_date,4,'Título','Legenda','Fonte','https://cdn.example.com/story.jpg','article')`));
  assert.equal((await db.query('select * from instagram_posts')).rows.length,1);
  await db.exec('reset role;');
+ await db.exec(`update subscriptions set status='active',expires_at=now()+interval '1 month' where user_id='${u2}';select enqueue_editions('2026-10-12');select enqueue_editions('2026-10-12');`);
+ assert.equal((await db.query(`select * from editions where user_id='${u2}' and week_start='2026-10-12'`)).rows.length,1);
+ await db.exec(`update editions set status='available' where user_id='${u2}' and week_start='2026-10-12';update subscriptions set expires_at=now()-interval '1 day' where user_id='${u2}';select enqueue_editions('2026-10-19');`);
+ assert.equal((await db.query(`select * from editions where user_id='${u2}' and week_start='2026-10-19'`)).rows.length,0);
  await db.close();
 });
