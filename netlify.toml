@@ -5,6 +5,8 @@
 [build.environment]
   NODE_VERSION = "22"
   NETLIFY_NEXT_SKEW_PROTECTION = "true"
+  # Public configuration strings, never credentials. Keep scanning all real secrets.
+  SECRETS_SCAN_OMIT_KEYS = "BILLING_PRODUCTS,OPENAI_MODEL,ASAAS_ENV"
 
 [functions]
   directory = "netlify/functions"
