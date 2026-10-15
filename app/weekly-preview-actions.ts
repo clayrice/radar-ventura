@@ -1,12 +1,15 @@
 "use server";
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {isDemo,sessionDb,adminDb,checked} from '@/lib/db';
+import {confirmationTestAllowed,sendConfirmationPayload} from '@/lib/daily-mail';
+import {editionEmail} from '@/lib/email-template';
+import {unsubscribeToken} from '@/lib/unsubscribe';
 import {generate} from '@/lib/ai';
 import {editionSchema,weekStart} from '@/lib/validation';
 import {validateEdition,matchPartners} from '@/lib/pipeline-core';
 import {weeklyInstructions} from '@/lib/weekly-instructions';
 import type {Article,Edition,Partner,Profile} from '@/lib/types';
-export type PreviewState={message:string;edition?:Edition};
+export type PreviewState={message:string;edition?:Edition;sent?:boolean};
 export async function previewWeekly(_:PreviewState):Promise<PreviewState>{
  if(isDemo())return {message:'A prévia personalizada exige login e conexão com as notícias reais.'};
  const session=await sessionDb();const {data:{user}}=await session.auth.getUser();
@@ -24,4 +27,23 @@ export async function previewWeekly(_:PreviewState):Promise<PreviewState>{
  const partners=matchPartners(checked(await db.from('partners').select('*').eq('active',true).eq('placement','newsletter')) as Partner[],profile.sector,content);
  return {message:'Prévia gerada por IA com seu perfil e matérias dos últimos sete dias. Não foi enviada por email e não ativa assinatura.',edition:{id:'preview',week_start:weekStart(),status:'preview',sent_at:null,content,articles,partners}};
  }catch{return {message:'Não foi possível gerar a prévia. Confira a disponibilidade da IA e tente novamente em dez minutos.'};}
+}
+
+// Manual validation shares the existing single-address test gate; public delivery stays disabled.
+export async function emailWeeklyPreview(_:PreviewState):Promise<PreviewState>{
+ const session=await sessionDb();const {data:{user}}=await session.auth.getUser();
+ if(!user?.email||!confirmationTestAllowed(user.email))return {message:'O envio de prévias de teste não está disponível para esta conta.'};
+ const consent=checked(await session.from('profiles').select('email_opt_in').eq('user_id',user.id).maybeSingle());
+ if(!consent?.email_opt_in)return {message:'Autorize o recebimento semanal no perfil antes de pedir o e-mail de teste.'};
+ const state=await previewWeekly({message:''});if(!state.edition)return state;
+ try{
+ const current=checked(await session.from('profiles').select('email_opt_in').eq('user_id',user.id).maybeSingle());
+ if(!current?.email_opt_in||!confirmationTestAllowed(user.email))return {message:'O envio foi interrompido porque a autorização mudou.'};
+ const origin=process.env.APP_URL!;const cancel=new URL('/unsubscribe',origin);cancel.searchParams.set('user',user.id);cancel.searchParams.set('token',unsubscribeToken(user.id));
+ const email=editionEmail(state.edition,origin,cancel.toString());
+ const payload={from:process.env.EMAIL_FROM,to:[user.email],...email};
+ const hash=createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+ await sendConfirmationPayload(user.email,payload,`ventura-weekly-preview/${user.id}/${hash}`);
+ return {...state,sent:true,message:'Prévia de teste enviada ao e-mail desta conta. A assinatura e os envios automáticos continuam desativados.'};
+ }catch{return {message:'Não foi possível enviar o teste. Aguarde dez minutos antes de tentar novamente.'};}
 }
