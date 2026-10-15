@@ -13,8 +13,19 @@ export async function createCheckout(userId:string,product:string,value:number){
  try{const body={externalReference:o.id,billingTypes:['CREDIT_CARD'],chargeTypes:[product==='roadmap'?'DETACHED':'RECURRENT'],minutesToExpire:60,callback:{successUrl:`${origin}/account/pagamento`,cancelUrl:`${origin}/account/pagamento?status=cancelado`,expiredUrl:`${origin}/account/pagamento?status=expirado`},items:[{name:productNames[product],description:product==='roadmap'?'Compra avulsa':'Assinatura mensal',quantity:1,value:value/100}],...(product==='roadmap'?{}:{subscription:{cycle:'MONTHLY',nextDueDate:new Date().toISOString().slice(0,10)}})};
  const result=await asaas('/checkouts',{method:'POST',body:JSON.stringify(body)});if(!result.id)throw new Error('Checkout sem identificador');checked(await db.from('orders').update({checkout_id:result.id,status:'pending'}).eq('id',o.id));return link(result.id);
  }catch(e){checked(await db.from('orders').update({status:'review',last_error:'Confirmar no Asaas se o checkout foi criado antes de repetir.'}).eq('id',o.id));throw e;}}
-export async function reconcilePayment(paymentId:string,checkoutId?:string){const db=adminDb();const payment=await asaas(`/payments/${encodeURIComponent(paymentId)}`);
- let order=null;
+// The sandbox may omit a recurring payment from the checkout filter even though
+// the payment carries that checkoutSession. A customer-scoped fallback is safe
+// only when each returned payment explicitly belongs to the requested checkout.
+export async function checkoutPaymentIds(checkoutId:string,customer?:string){
+ const matches=(rows:Record<string,unknown>[])=>rows.filter(p=>p.checkoutSession===checkoutId&&typeof p.id==='string').map(p=>p.id as string);
+ const primary=await asaas(`/payments?checkoutSession=${encodeURIComponent(checkoutId)}&limit=100`);
+ let ids=matches(primary.data||[]);
+ if(!ids.length&&customer){const fallback=await asaas(`/payments?customer=${encodeURIComponent(customer)}&limit=100`);ids=matches(fallback.data||[]);}
+ return [...new Set(ids)];
+}
+export async function reconcilePayment(paymentId:string,checkoutId?:string){const payment=await asaas(`/payments/${encodeURIComponent(paymentId)}`);
+ if(checkoutId&&payment.checkoutSession!==checkoutId)throw new Error('Cobrança não pertence ao checkout');
+ const db=adminDb();let order=null;
  if(checkoutId||payment.checkoutSession)order=checked(await db.from('orders').select('*').eq('checkout_id',checkoutId||payment.checkoutSession).maybeSingle());
  if(!order&&payment.subscription)order=checked(await db.from('orders').select('*').eq('subscription_id',payment.subscription).maybeSingle());
  if(!order)return false;
