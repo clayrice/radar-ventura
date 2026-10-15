@@ -88,3 +88,19 @@ test('edição de três itens abre espaço a caso e guia quando disponíveis',()
  assert.deepEqual(dailyMix(pool,3).map(a=>a.category),['Backstage','Cases','Guides']);
  assert.equal(dailyMix(pool.filter(a=>a.category==='Backstage'),3).length,2);
 });
+
+
+test('semanal preserva texto editorial e parágrafos sem publicar fatos inventados pelo modelo',()=>{
+ const articles=structuredClone(demoArticles),raw=structuredClone(demoEdition.content!);
+ const first=raw.overview[0].article_id;
+ articles.find(a=>a.id===first)!.summary='Gudea usa IA para monitorar reputação.\n\nO texto publicado não atribui nacionalidade à empresa.\n\nMantenha <conteúdo> e fontes verificáveis.';
+ raw.overview[0].takeaway='Uma startup brasileira oferece retorno garantido para qualquer loja.';
+ const content=validateEdition(raw,articles);
+ assert.equal(content.overview[0].takeaway,articles.find(a=>a.id===first)!.summary);
+ const mail=editionEmail({...demoEdition,content,articles},'https://radar.example','https://radar.example/unsubscribe');
+ assert.ok(!mail.html.includes('retorno garantido'));assert.ok(!mail.text.includes('startup brasileira'));
+ assert.match(mail.html,/>Gudea usa IA para monitorar reputação\.<\/p>/);
+ assert.match(mail.html,/>O texto publicado não atribui nacionalidade à empresa\.<\/p>/);
+ assert.ok(mail.html.includes('&lt;conteúdo&gt;'));
+ articles.find(a=>a.id===first)!.summary='';assert.throws(()=>validateEdition(raw,articles),/Missing published/);
+});
