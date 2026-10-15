@@ -3,6 +3,7 @@ node_modules/
 .env*
 !.env.example
 .vercel/
+.netlify/
 *.tsbuildinfo
 
 data/radar/collection.json
