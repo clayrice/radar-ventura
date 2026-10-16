@@ -22,7 +22,7 @@ test('semanal reúne reportagem, foto e leitura personalizada sem repetir títul
  const email=editionEmail(e,'https://radar.example','https://radar.example/unsubscribe');
  assert.equal(email.html.split(first.title).length-1,1);
  assert.equal(email.html.split(second.title).length-1,1);
- assert.ok(email.html.includes('/brand/radar-weekly-header.png'));
+ assert.ok(email.html.includes('/brand/radar-weekly-header-v2.png'));
  assert.ok(email.html.includes('src="https://images.example/photo.jpg"'));
  assert.ok(email.html.includes('Foto &lt;original&gt;'));assert.ok(email.html.includes('Fonte &amp; autor'));
  assert.ok(email.html.indexOf('photo.jpg')<email.html.indexOf('Reportagem completa.'));
@@ -33,4 +33,14 @@ test('semanal reúne reportagem, foto e leitura personalizada sem repetir títul
  assert.ok(email.text.indexOf('Impacto específico')<email.text.indexOf(second.title));
  first.cover_url='javascript:alert(1)';
  assert.ok(!editionEmail(e,'https://radar.example','https://radar.example/unsubscribe').html.includes('javascript:'));
+});
+
+test('prévia sem parceiro compatível mantém a seção e o acesso ao diretório',()=>{
+ const e={...structuredClone(demoEdition),partners:[]};
+ const mail=editionEmail(e,'https://radar.example','https://radar.example/unsubscribe');
+ assert.ok(mail.html.includes('Parceiros para o próximo passo'));
+ assert.ok(mail.html.includes('href="https://radar.example/partners"'));
+ assert.ok(mail.html.indexOf('Seus próximos passos')<mail.html.indexOf('Parceiros para o próximo passo'));
+ assert.ok(!mail.html.includes('Parceiro patrocinado'));
+ assert.ok(mail.text.includes('Diretório Ventura: https://radar.example/partners'));
 });
