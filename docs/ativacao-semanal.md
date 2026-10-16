@@ -40,7 +40,7 @@ Antes de mudar a URL pública: concluir o cadastro gratuito e conectar exclusiva
 
 Validação local da preparação: 73 testes passaram e a verificação TypeScript passou. O adaptador e os horários ainda precisam ser verificados em um deploy real da Netlify. O recebimento da prévia semanal por e-mail continua pendente da publicação.
 
-O primeiro deploy passou, mas o deploy com as variáveis protegidas encontrou falso positivo no scanner para três configurações públicas: BILLING_PRODUCTS, OPENAI_MODEL e ASAAS_ENV. A exceção em netlify.toml limita-se a esses três nomes. A varredura continua ativa para todas as credenciais e tokens. O projeto foi renomeado para radar-ventura.netlify.app; os dois contextos de visibilidade permanecem privados durante a validação. As conexões das novas chaves com Supabase, Asaas e OpenAI retornaram HTTP 200. O webhook Asaas foi atualizado para o domínio Netlify e segue desativado. O callback de login da Netlify foi acrescentado à lista permitida do Supabase, preservando o retorno antigo durante a transição.
+O primeiro deploy passou, mas o deploy com as variáveis protegidas encontrou falso positivo no scanner para três configurações públicas: BILLING_PRODUCTS, OPENAI_MODEL e ASAAS_ENV. A exceção em netlify.toml limita-se a esses três nomes. A varredura continua ativa para todas as credenciais e tokens. O projeto foi renomeado para radar-ventura.netlify.app; a produção está pública e os previews permanecem privados. As conexões das novas chaves com Supabase, Asaas e OpenAI retornaram HTTP 200. O webhook Asaas foi atualizado para o domínio Netlify e segue desativado. O callback de login da Netlify foi acrescentado à lista permitida do Supabase, preservando o retorno antigo durante a transição.
 
 Referências oficiais: https://www.netlify.com/blog/introducing-netlify-free-plan/ ; https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/credit-based-pricing-plans/ ; https://docs.netlify.com/build/frameworks/framework-setup-guides/nextjs/overview/ ; https://docs.netlify.com/build/functions/scheduled-functions/ .
 
@@ -49,3 +49,13 @@ Referências oficiais: https://www.netlify.com/blog/introducing-netlify-free-pla
 O login por e-mail retornou corretamente a radar-ventura.netlify.app. Uma prévia de teste foi recebida no endereço autorizado em 15/10/2026, com SPF, DKIM e DMARC aprovados. A revisão encontrou uma atribuição de nacionalidade sem apoio no material fornecido. O resumo factual da edição semanal agora reutiliza integralmente o texto editorial das notícias selecionadas; o modelo escolhe a relevância e propõe a análise e os passos personalizados. Parágrafos são preservados na conta e no e-mail, e a instrução explicita que o contexto brasileiro do leitor não determina a origem das empresas nas matérias. A alteração impede a reescrita factual observada na seção de notícias; a análise gerada continua exigindo acompanhamento editorial.
 
 Validação da correção: 74 testes e build passaram. Confirmar nova prévia após publicar. Cobranças, webhook e envios automáticos seguem desativados durante esses testes.
+
+## Acesso por e-mail em 16/10/2026
+
+SMTP próprio do Resend conectado ao Supabase, com autorização da proprietária: smtp.resend.com:465, usuário resend, remetente Ventura AI <acesso@news.ventura-ai.com>. A credencial existente foi salva somente no painel seguro. A entrega ao endereço autorizado foi confirmada no Gmail, com SPF, DKIM e DMARC aprovados. Os modelos de acesso e confirmação foram substituídos integralmente pelos arquivos em supabase/templates, gerados por `node --import tsx scripts/build-auth-emails.mts`. Usam as variáveis oficiais SiteURL e ConfirmationURL. Não incluir o modelo padrão anterior ao colar no editor. A segunda entrega, após remover o texto padrão em inglês, ainda precisa ser conferida.
+
+Produção da Netlify confirmada na versão 57c2b2b (PR #10), deploy 6ad15bf79121a0b075eb7e32. A prévia corrigida ainda precisa ser recebida e revisada.
+
+O vercel.json mantém somente o Instagram na hospedagem anterior. Após publicar esta alteração na Vercel, conferir a remoção dos agendamentos daily e weekly, que passam a ser responsabilidade da Netlify. O Instagram permanece na Vercel enquanto suas credenciais não forem migradas. Na Netlify, INSTAGRAM_PUBLISH_ENABLED=false evita duplicação.
+
+Estado de liberação: BILLING_ENABLED, WEEKLY_JOB_ENABLED, EMAIL_SEND_ENABLED e DAILY_EMAIL_SEND_ENABLED permanecem false; webhook Asaas permanece desativado. A conexão SMTP não ativa cobranças nem campanhas.
