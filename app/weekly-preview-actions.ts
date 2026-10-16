@@ -18,7 +18,7 @@ export async function previewWeekly(_:PreviewState):Promise<PreviewState>{
  const profile=checked(await session.from('profiles').select('*').eq('user_id',user.id).maybeSingle()) as Profile|null;
  if(!profile)return {message:'Preencha o perfil da empresa antes de gerar a prévia.'};
  const db=adminDb();
- const articles=checked(await db.from('articles').select('id,title,summary,brazil_impact,source_name,source_url,published_at,category,sectors').eq('status','published').gte('published_at',new Date(Date.now()-7*86400000).toISOString()).order('published_at',{ascending:false}).limit(24)) as Article[];
+ const articles=checked(await db.from('articles').select('id,title,summary,brazil_impact,cover_url,cover_caption,cover_credit,source_name,source_url,published_at,category,sectors').eq('status','published').gte('published_at',new Date(Date.now()-7*86400000).toISOString()).order('published_at',{ascending:false}).limit(24)) as Article[];
  if(!articles.length)return {message:'Ainda não há matérias publicadas nos últimos sete dias para preparar a prévia.'};
  // Leave the ten-minute lease in place to throttle each authenticated user.
  if(!checked(await db.rpc('acquire_job',{lock_name:`weekly-preview:${user.id}`,lock_owner:randomUUID()})))return {message:'Aguarde dez minutos entre as prévias. Se já gerou uma, confira o resultado abaixo.'};
@@ -44,6 +44,6 @@ export async function emailWeeklyPreview(_:PreviewState):Promise<PreviewState>{
  const payload={from:process.env.EMAIL_FROM,to:[user.email],...email};
  const hash=createHash('sha256').update(JSON.stringify(payload)).digest('hex');
  await sendConfirmationPayload(user.email,payload,`ventura-weekly-preview/${user.id}/${hash}`);
- return {...state,sent:true,message:'Prévia de teste enviada ao e-mail desta conta. A assinatura e os envios automáticos continuam desativados.'};
+ return {...state,sent:true,message:'Prévia de teste enviada ao e-mail desta conta. Este teste não altera sua assinatura nem as preferências de envio.'};
  }catch{return {message:'Não foi possível enviar o teste. Aguarde dez minutos antes de tentar novamente.'};}
 }

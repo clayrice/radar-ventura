@@ -18,13 +18,18 @@ grotesk = ImageFont.truetype(str(ROOT/'public/fonts/space-grotesk-600.ttf'),170)
 serif = ImageFont.truetype(str(ROOT/'public/fonts/instrument-serif-italic.ttf'),205)
 small = ImageFont.truetype(str(ROOT/'public/fonts/space-grotesk-600.ttf'),30)
 ink = '#15142F'
-draw.text((84,36), 'RADAR DIÁRIO', font=small, fill='#524FF5')
-draw.text((80,82), 'IA com', font=grotesk, fill=ink)
-# The lime highlight and serif italic reproduce the site's headline treatment.
-draw.rectangle((82,325,528,473), fill='#DBFF4F')
-draw.text((82,247), 'rumo.', font=serif, fill=ink)
-logo = Image.open(ROOT/'public/brand/ventura-indigo.png').convert('RGBA')
-logo.thumbnail((570,150), Image.Resampling.LANCZOS)
-image.paste(logo, (W-84-logo.width, (H-logo.height)//2), logo)
-image.save(ROOT/'public/brand/radar-daily-header.png', optimize=True)
-print(f'Masthead saved: {W}x{H}')
+# Keep both newsletters on the same approved visual system.
+base = image.copy()
+for kind, label in [('daily', 'RADAR DIÁRIO'), ('weekly', 'VENTURA SEMANAL')]:
+ image = base.copy()
+ draw = ImageDraw.Draw(image)
+ draw.text((84,36), label, font=small, fill='#524FF5')
+ draw.text((80,82), 'IA com', font=grotesk, fill=ink)
+ # The lime highlight and serif italic reproduce the site's headline treatment.
+ draw.rectangle((82,325,528,473), fill='#DBFF4F')
+ draw.text((82,247), 'rumo.', font=serif, fill=ink)
+ logo = Image.open(ROOT/'public/brand/ventura-indigo.png').convert('RGBA')
+ logo.thumbnail((570,150), Image.Resampling.LANCZOS)
+ image.paste(logo, (W-84-logo.width, (H-logo.height)//2), logo)
+ image.save(ROOT/f'public/brand/radar-{kind}-header.png', optimize=True)
+ print(f'Masthead saved: {W}x{H}')

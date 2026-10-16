@@ -13,3 +13,24 @@ test('envio manual semanal exige destinatário de teste e consentimento antes de
  state.weeklyMailUser.email='tester@example.com';state.weeklyMailConsent=false;assert.match((await emailWeeklyPreview({message:''})).message,/Autorize/);
  }finally{delete state.weeklyMailUser;delete state.weeklyMailConsent;await rm(dir,{recursive:true,force:true});}
 });
+
+test('semanal reúne reportagem, foto e leitura personalizada sem repetir títulos',()=>{
+ const e=structuredClone(demoEdition);const first=e.articles[0],second=e.articles[1];
+ first.cover_url='https://images.example/photo.jpg';first.cover_caption='Foto <original>';first.cover_credit='Fonte & autor';
+ e.content!.overview=[{article_id:first.id,takeaway:'Reportagem completa.\n\nSegundo parágrafo.'}];
+ e.content!.relevant=[{article_id:first.id,why:'Impacto específico para a empresa.'},{article_id:second.id,why:'Outra análise sem perder a reportagem.'}];
+ const email=editionEmail(e,'https://radar.example','https://radar.example/unsubscribe');
+ assert.equal(email.html.split(first.title).length-1,1);
+ assert.equal(email.html.split(second.title).length-1,1);
+ assert.ok(email.html.includes('/brand/radar-weekly-header.png'));
+ assert.ok(email.html.includes('src="https://images.example/photo.jpg"'));
+ assert.ok(email.html.includes('Foto &lt;original&gt;'));assert.ok(email.html.includes('Fonte &amp; autor'));
+ assert.ok(email.html.indexOf('photo.jpg')<email.html.indexOf('Reportagem completa.'));
+ assert.ok(email.html.indexOf('Segundo parágrafo.')<email.html.indexOf('Impacto específico'));
+ assert.ok(email.html.indexOf('Impacto específico')<email.html.indexOf(second.title));
+ assert.ok(email.html.indexOf('Outra análise')<email.html.indexOf('Seus próximos passos'));
+ assert.ok(email.html.includes(second.summary));
+ assert.ok(email.text.indexOf('Impacto específico')<email.text.indexOf(second.title));
+ first.cover_url='javascript:alert(1)';
+ assert.ok(!editionEmail(e,'https://radar.example','https://radar.example/unsubscribe').html.includes('javascript:'));
+});
