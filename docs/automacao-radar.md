@@ -1,8 +1,10 @@
 # Automação diária do Radar Ventura
 
-A execução principal está configurada para 06h de São Paulo (09h UTC). A conta Vercel deste projeto está no plano Hobby, que pode iniciar o cron em qualquer minuto entre 06h e 06h59 e limita cada função a 60 segundos; para garantir o minuto exato e uma janela de execução maior, é necessário o plano Pro. A execução prepara exatamente três matérias com imagens da própria reportagem, publica no Radar e, no mesmo fluxo, cria e publica três posts no Instagram. As chamadas posteriores do dia retomam falhas e pendências da mesma edição, sem criar uma edição extra. A rotina só termina como `completed` após confirmar três matérias no Radar, três imagens de fonte e três posts do Instagram com arte.
+A coleta diária roda na Netlify às 06h de São Paulo (09h UTC), com recuperações às 08h, 09h, 11h, 14h, 17h e 20h, conforme `netlify.toml`. A fila semanal também roda na Netlify. O Instagram permanece na Vercel; `INSTAGRAM_PUBLISH_ENABLED=false` na Netlify evita que essa hospedagem publique.
 
-O agendamento da Vercel usa UTC. Os horários posteriores configurados em `vercel.json` servem para recuperação: 08h, 09h, 11h, 14h, 17h e 20h em São Paulo. A edição selecionada é sempre a data atual de São Paulo; uma pendência antiga não toma o lugar das notícias do dia.
+A Vercel chama `/api/jobs/instagram` às 10h UTC (07h de São Paulo). Chamadas de recuperação estão configuradas às 11h30, 12h30, 14h30, 17h30, 20h30 e 23h30 UTC (08h30, 09h30, 11h30, 14h30, 17h30 e 20h30 de São Paulo). Cada entrada cron executa uma vez por dia, compatível com o plano Hobby. Esse plano tem janela flexível de até 59 minutos; os horários não garantem publicação no minuto indicado.
+
+As chamadas retomam os posts pendentes da data atual de São Paulo. A rotina exige exatamente três matérias publicadas com fotos da fonte, preserva o bloqueio de concorrência e nunca repete automaticamente `media_publish` quando uma tentativa ficou sem confirmação. Uma edição antiga não substitui a edição atual. A conclusão só ocorre após confirmar três matérias com imagens e três posts publicados.
 
 ## Imagens das matérias
 
@@ -12,7 +14,7 @@ Imagem ausente, inacessível ou de origem não confirmada impede a publicação.
 
 ## Instagram e conclusão
 
-Uma vez configurados o identificador da conta, token e permissões de publicação da Meta, o fluxo diário publica automaticamente sem aprovação individual. `INSTAGRAM_PUBLISH_ENABLED=false` é apenas um interruptor de emergência; em produção, deve permanecer `true`. A publicação exige correspondência entre a imagem de fonte do artigo e a capa do post. Falhas ficam pendentes para retry e nunca contam como post confirmado.
+Uma vez configurados o identificador da conta, token e permissões de publicação da Meta, o fluxo diário publica automaticamente sem aprovação individual. `INSTAGRAM_PUBLISH_ENABLED=false` é apenas um interruptor de emergência; na produção Vercel, deve permanecer `true`; na Netlify permanece `false` enquanto o Instagram for operado pela Vercel. A publicação exige correspondência entre a imagem de fonte do artigo e a capa do post. Falhas ficam pendentes para retry e nunca contam como post confirmado.
 
 Aplicar as migrações `011_instagram.sql`, `014_daily_completion.sql`, `015_image_completion.sql` e `016_source_images_required.sql` antes do deploy. `016` registra a origem das imagens, impede que matérias atuais sejam publicadas sem imagem da fonte e exige três imagens válidas e três posts confirmados na conclusão. A restrição histórica permanece preservada.
 
@@ -26,8 +28,13 @@ O horário configurado representa o início do processamento. Coleta, redação,
 
 ## Conferência após implantação
 
-1. Confirmar em Vercel que o cron diário `/api/jobs/daily` está ativo às 09:00 UTC e que o plano permite essa precisão.
-2. Confirmar em produção as credenciais oficiais da Meta e `INSTAGRAM_PUBLISH_ENABLED=true`.
-3. Executar a rota uma vez e conferir três artigos, cada um com `cover_origin` `feed` ou `article`, e três posts publicados com imagem no Instagram.
-4. Repetir a execução: deve manter os mesmos três artigos e posts, sem duplicatas.
-5. Verificar `radar_editions.status='completed'` apenas depois das confirmações nos dois canais.
+1. Confirmar que o deploy de produção Vercel registrou as sete entradas de `/api/jobs/instagram` de `vercel.json`.
+2. Confirmar as credenciais da Meta e `INSTAGRAM_PUBLISH_ENABLED=true` na Vercel. A Netlify mantém a publicação desativada.
+3. Consultar `job_runs` e `instagram_posts` após uma execução natural. Não acionar a rota para testar em produção: ela publica conteúdo real.
+4. Conferir três posts confirmados da data editorial, sem duplicatas, e a próxima execução diária para reconciliar a conclusão da edição.
+
+## Incidente de 16/10/2026
+
+Às 07h39 de São Paulo, o Instagram registrou `waiting_for_three_articles` com zero matérias. A coleta registrou interrupções e só alcançou três matérias às 11h01. As execuções seguintes da Netlify retornaram `instagram: disabled`; havia apenas uma chamada diária de Instagram na Vercel. Nenhum registro de post existia para a data durante o diagnóstico.
+
+A correção adiciona seis oportunidades diárias de recuperação na Vercel, sem alterar credenciais, habilitar publicação na Netlify ou executar publicações de teste. O atraso da coleta continua sendo um limite separado; os novos horários permitem retomar a edição quando ela estiver pronta.
