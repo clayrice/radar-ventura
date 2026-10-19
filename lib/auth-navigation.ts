@@ -1,4 +1,4 @@
-const destinations = new Set(['/account','/account/profile','/account/parceiro','/account/rota','/account/pagamento']);
+const destinations = new Set(['/account','/account/profile','/account/parceiro','/account/rota','/account/pagamento','/account/assinatura']);
 export function authDestination(value:unknown):string {
  return typeof value==='string' && destinations.has(value) ? value : '/account';
 }
