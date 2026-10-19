@@ -1,4 +1,5 @@
 import {timingSafeEqual} from 'node:crypto';
+import {adminDb,checked} from '@/lib/db';
 import {runInstagram} from '@/lib/instagram';
 import {radarDate} from '@/lib/radar-dates';
 export const runtime='nodejs';
@@ -12,6 +13,6 @@ export async function GET(req:Request){
  const today=radarDate();const date=new URL(req.url).searchParams.get('date')||today;
  const days=Math.floor((Date.parse(`${today}T00:00:00Z`)-Date.parse(`${date}T00:00:00Z`))/86400000);
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isInteger(days)||days<0||days>14)return Response.json({error:'Invalid editorial date'},{status:400});
- try{const result=await runInstagram(Date.now()+54000,date);return Response.json(result,{status:result.instagram==='completed'?200:202});}
+ try{const result=await runInstagram(Date.now()+50000,date);checked(await adminDb().rpc('reconcile_radar_edition',{edition_date:date}));return Response.json(result,{status:result.instagram==='completed'?200:202});}
  catch{return Response.json({error:'Instagram job failed; inspect private job_runs'},{status:500});}
 }

@@ -92,6 +92,7 @@ export async function runDaily(){
   // A killed invocation remains visibly interrupted, never completed.
   checked(await db.from('job_runs').update({status:'interrupted',finished_at:new Date().toISOString(),error:'Worker interrompido; retomado pela próxima execução'}).eq('job','daily').eq('status','running'));
   checked(await db.from('radar_editions').upsert({radar_date:date},{onConflict:'radar_date',ignoreDuplicates:true}));
+  checked(await db.rpc('reconcile_radar_edition',{edition_date:date}));
  const edition=checked(await db.from('radar_editions').select('*').eq('radar_date',date).neq('status','completed').lte('next_attempt_at',new Date().toISOString()).maybeSingle());
   if(!edition){const current=checked(await db.from('radar_editions').select('status,last_reason,metrics').eq('radar_date',date).single());return {status:current?.status||'pending',reason:current?.last_reason||'retry_scheduled',...current?.metrics};}
   date=edition.radar_date;attempts=edition.attempts+1;
@@ -112,10 +113,12 @@ export async function runDaily(){
    // Keep posting inside the 60-second function ceiling and reserve final persistence.
    instagram=await runInstagram(deadline-3000,date).catch(()=>({instagram:'failed',instagram_published:0,instagram_failures:1}));
   }
-  const outcome=editionOutcome(counts.published,Number(instagram.instagram_published)||0,covers.articles_with_images,counts.published===3?String(instagram.instagram||'instagram_pending'):radar.reason);
+  const confirmed=checked(await db.rpc('reconcile_radar_edition',{edition_date:date}));
+  if(confirmed)instagram={...instagram,instagram:'completed',instagram_published:3,completion_source:'confirmed_database'};
+  const outcome=editionOutcome(counts.published,confirmed?3:0,covers.articles_with_images,counts.published===3?'awaiting_instagram_confirmation':radar.reason);
   metrics={...metrics,...counts,...covers,...instagram,radar_date:date,attempt:attempts,status:outcome.status,reason:outcome.reason};
   const next=new Date(Date.now()+(radar.reason==='news_daily_budget_exhausted'?3600000:300000)).toISOString();
-  checked(await db.from('radar_editions').update({status:outcome.status,search_stage:radar.stage,metrics,last_reason:outcome.reason,next_attempt_at:next,updated_at:new Date().toISOString()}).eq('radar_date',date));
+  checked(await db.from('radar_editions').update({status:outcome.status,search_stage:radar.stage,metrics,last_reason:outcome.reason,next_attempt_at:next,updated_at:new Date().toISOString()}).eq('radar_date',date).neq('status','completed'));
   checked(await db.from('job_runs').update({status:outcome.status,finished_at:new Date().toISOString(),metrics}).eq('id',run!.id));
   console.info('radar_daily',JSON.stringify(metrics));
   // Customer work has its own budget and cannot turn an incomplete edition into success.
@@ -125,7 +128,7 @@ export async function runDaily(){
   return metrics;
  }catch(error){
   if(run)checked(await db.from('job_runs').update({status:'failed',finished_at:new Date().toISOString(),metrics,error:err(error)}).eq('id',run.id));
-  checked(await db.from('radar_editions').update({status:'pending',last_reason:'worker_failure',next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq('radar_date',date));
+  checked(await db.from('radar_editions').update({status:'pending',last_reason:'worker_failure',next_attempt_at:new Date(Date.now()+300000).toISOString(),updated_at:new Date().toISOString()}).eq('radar_date',date).neq('status','completed'));
   throw error;
  }finally{checked(await db.rpc('release_job',{lock_name:'daily',lock_owner:owner}));}
 }

@@ -38,9 +38,15 @@ test('banco bloqueia quarta notícia, preserva reexecução e isola edição/cot
  await assert.rejects(db.exec(`update radar_editions set status='completed' where radar_date='2026-10-06'`),/publication_images_missing/);
  await db.exec(`update articles set cover_url='https://example.com/art.jpg',cover_origin='article' where radar_date='2026-10-06';`);
  await assert.rejects(db.exec(`update radar_editions set status='completed' where radar_date='2026-10-06'`),/publication_instagram_missing/);
+ assert.equal((await db.query<{ok:boolean}>(`select reconcile_radar_edition('2026-10-06') as ok`)).rows[0].ok,false);
  await db.exec(`insert into instagram_posts(article_id,account_id,radar_date,slot,title,caption,source_name,status,image_url,cover_url,cover_origin)
  select id,'123',radar_date,row_number() over(order by title_key),'Título','Legenda','Fonte','published','https://example.com/post.jpg',cover_url,cover_origin from articles where radar_date='2026-10-06';`);
- await db.exec(`update radar_editions set status='completed' where radar_date='2026-10-06';`);
+ await db.exec(`update instagram_posts set account_id='other' where slot=1`);
+ assert.equal((await db.query<{ok:boolean}>(`select reconcile_radar_edition('2026-10-06') as ok`)).rows[0].ok,false);
+ await db.exec(`update instagram_posts set account_id='123' where slot=1`);
+ assert.equal((await db.query<{ok:boolean}>(`select reconcile_radar_edition('2026-10-06') as ok`)).rows[0].ok,true);
+ assert.equal((await db.query<{status:string}>(`select status from radar_editions where radar_date='2026-10-06'`)).rows[0].status,'completed');
+ assert.equal((await db.query<{ok:boolean}>(`select reconcile_radar_edition('2026-10-06') as ok`)).rows[0].ok,true);
  await assert.rejects(db.exec(`update instagram_posts set image_url=null where slot=1`),/instagram_requires_art/);
  await insert(5,'2026-10-07');
  await assert.rejects(db.exec(`update articles set radar_date='2026-10-06' where title_key='key-5'`),/radar_daily_capacity_reached/);
