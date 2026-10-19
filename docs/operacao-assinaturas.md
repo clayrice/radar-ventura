@@ -1,5 +1,15 @@
 # Gestão da assinatura e fechamento diário
 
+## Estado verificado em 19/10/2026
+
+PR #15 integrado e publicado na Netlify em `70ebf4e`. Migrações 022 e 023 aplicadas no Supabase. Conciliação administrativa das edições de 16 a 19/10 confirmada, sem republicação. A página `/account/assinatura` foi conferida na conta autenticada: sem período pago ativo, coerente com a ausência de pedidos. A primeira navegação após o deploy manteve um 404 antigo em cache; uma nova navegação carregou a página correta. Isso não valida uma compra ou um cancelamento real.
+
+## Agendamento do diário por e-mail
+
+`radar-daily-email` chama a rota existente `/api/jobs/daily-email` por meio do worker autenticado. Executa às 09:45, 11:45, 12:45, 14:45, 17:45, 20:45 e 23:45 UTC (06:45 a 20:45 em São Paulo), depois das tentativas de coleta. O registro por assinante/data e a chave de idempotência existentes impedem a repetição de entregas já confirmadas. A rota aguarda exatamente três matérias publicadas, sem depender do horário de publicação no Instagram.
+
+O disparador não cria trabalho em segundo plano enquanto `DAILY_EMAIL_SEND_ENABLED` e `EMAIL_SEND_ENABLED` não forem ambos `true`, ou em modo demonstrativo. A própria rota verifica essas permissões novamente. O diário geral permanece desativado nesta implantação. Antes de liberar: validar uma entrega autorizada, confirmar cadastro/cancelamento e supressões, revisar destinatários e monitorar o primeiro lote. Não executar manualmente o job com destinatários reais como teste de infraestrutura.
+
 ## Implantação
 
 Aplicar, nesta ordem, `022_reconcile_daily_completion.sql` e `023_subscription_cancellation.sql` no Supabase do Radar antes de publicar a aplicação. As alterações acrescentam uma função restrita à service role e três colunas de controle da renovação. Não geram cobrança, publicação ou envio. A função de conciliação apenas marca uma edição concluída quando já existem três matérias, três fotos de origem e três posts confirmados da mesma conta e data. O trigger do banco continua conferindo a conclusão.
