@@ -14,7 +14,7 @@ export async function cancelWeeklyRenewal(userId:string,orderId:string){
   checked(await db.from('orders').update({renewal_status:'cancel_requested',cancellation_requested_at:new Date().toISOString()}).eq('id',order.id).eq('user_id',userId));
   // A retry after a successful DELETE may receive 404. Verify absence before
   // accepting it; other provider failures always leave the request pending.
-  try{const result=await asaas(`/subscriptions/${encodeURIComponent(order.subscription_id)}`,{method:'DELETE'});if(result.deleted===false)throw Error('Cancelamento não confirmado pelo provedor.');}
+  try{const result=await asaas(`/subscriptions/${encodeURIComponent(order.subscription_id)}`,{method:'DELETE'});if(result.deleted!==true)throw Error('Cancelamento não confirmado pelo provedor.');}
   catch(error){
    if(!(error instanceof Error)||error.message!=='Asaas HTTP 404')throw error;
    try{const current=await asaas(`/subscriptions/${encodeURIComponent(order.subscription_id)}`);if(current.deleted!==true)throw Error('Assinatura ainda existe no provedor.');}
