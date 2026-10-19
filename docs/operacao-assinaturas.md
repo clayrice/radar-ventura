@@ -41,3 +41,11 @@ Para corrigir registros históricos pendentes, usar apenas a função de concili
 Ainda pendentes desta frente: recibos transacionais de ativação/cancelamento financeiro, confirmação por webhook de cancelamento feito diretamente no Asaas, ciclo completo de uma compra real autorizada e painel operacional. A implantação desta etapa não ativa o diário geral nem altera os limites de geração.
 
 Referência: https://docs.asaas.com/reference/remover-assinatura
+
+## Cancelamento iniciado no Asaas
+
+A rota de webhook trata `SUBSCRIPTION_DELETED` e localiza um pedido semanal pela recorrência armazenada no banco. Confere a remoção por consulta ao Asaas (`deleted=true` ou 404), usa o mesmo lock do cancelamento pela conta e atualiza somente renovação, data de cancelamento e erro. Não altera pagamento ou período de acesso. Também reconhece a recorrência se um estorno já tiver mudado o status financeiro do pedido.
+
+Pedido ainda desconhecido, remoção não confirmada ou indisponibilidade do provedor mantêm o evento pendente e retornam 503 para nova tentativa. Eventos concluídos são deduplicados. Para receber esse tratamento, a configuração do webhook no Asaas precisa incluir SUBSCRIPTION_DELETED. A entrega externa deste evento deve ser validada separadamente; testes locais não comprovam o transporte Asaas → Netlify.
+
+Referência: https://docs.asaas.com/docs/eventos-para-assinaturas

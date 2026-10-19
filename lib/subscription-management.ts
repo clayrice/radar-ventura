@@ -2,6 +2,25 @@ import 'server-only';
 import {adminDb,checked} from './db';
 import {asaas} from './billing';
 
+// An external cancellation changes renewal only. Paid access still expires
+// through the existing payment ledger, including any later refund events.
+export async function reconcileWeeklyCancellation(subscriptionId:string){
+ if(!/^sub_[A-Za-z0-9_-]{1,100}$/.test(subscriptionId))throw Error('Assinatura inválida.');
+ const db=adminDb();
+ const orders=checked(await db.from('orders').select('id,renewal_status').eq('subscription_id',subscriptionId).eq('product','weekly').limit(2));
+ if(!orders?.length)return false;
+ if(orders.length!==1)throw Error('Recorrência associada a mais de um pedido.');
+ if(orders[0].renewal_status==='cancelled')return true;
+ const owner=crypto.randomUUID(),lock=`cancel-subscription:${orders[0].id}`;
+ if(!checked(await db.rpc('acquire_job',{lock_name:lock,lock_owner:owner})))throw Error('Cancelamento em andamento.');
+ try{
+ try{const current=await asaas(`/subscriptions/${encodeURIComponent(subscriptionId)}`);if(current.deleted!==true)throw Error('Remoção ainda não confirmada pelo provedor.');}
+ catch(error){if(!(error instanceof Error)||error.message!=='Asaas HTTP 404')throw error;}
+ checked(await db.from('orders').update({renewal_status:'cancelled',cancelled_at:new Date().toISOString(),last_error:null}).eq('id',orders[0].id).eq('subscription_id',subscriptionId).eq('product','weekly'));
+ return true;
+ }finally{checked(await db.rpc('release_job',{lock_name:lock,lock_owner:owner}));}
+}
+
 // The caller supplies only an owned order ID, never a provider subscription ID.
 export async function cancelWeeklyRenewal(userId:string,orderId:string){
  const db=adminDb();
