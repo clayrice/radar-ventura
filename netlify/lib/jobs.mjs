@@ -1,6 +1,6 @@
 import {timingSafeEqual} from 'node:crypto';
 
-const jobs = new Set(['daily', 'weekly', 'instagram']);
+const jobs = new Set(['daily', 'daily-email', 'weekly', 'instagram']);
 
 function settings() {
   const secret = process.env.CRON_SECRET;
@@ -15,6 +15,11 @@ function settings() {
 // for the existing Next route, whose own lock and feature gates remain in force.
 export async function dispatch(job) {
   if (!jobs.has(job)) throw new Error('Unknown job');
+  // Keep the dormant schedule from creating background work before launch.
+  // The delivery route independently checks the same flags before sending.
+  if (job === 'daily-email' && (process.env.DEMO_MODE === 'true' || process.env.EMAIL_SEND_ENABLED !== 'true' || process.env.DAILY_EMAIL_SEND_ENABLED !== 'true')) {
+    return new Response(null, {status: 204});
+  }
   const {secret, origin} = settings();
   const response = await fetch(`${origin}/.netlify/functions/radar-job-background`, {
     method: 'POST', headers: {authorization: `Bearer ${secret}`, 'content-type': 'application/json'},
