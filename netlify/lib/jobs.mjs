@@ -1,6 +1,6 @@
 import {timingSafeEqual} from 'node:crypto';
 
-const jobs = new Set(['daily', 'daily-email', 'weekly', 'instagram']);
+const jobs = new Set(['daily', 'daily-email', 'billing-email', 'weekly', 'instagram']);
 
 function settings() {
   const secret = process.env.CRON_SECRET;
@@ -20,6 +20,7 @@ export async function dispatch(job) {
   if (job === 'daily-email' && (process.env.DEMO_MODE === 'true' || process.env.EMAIL_SEND_ENABLED !== 'true' || process.env.DAILY_EMAIL_SEND_ENABLED !== 'true')) {
     return new Response(null, {status: 204});
   }
+  if (job === 'billing-email' && (process.env.DEMO_MODE === 'true' || process.env.EMAIL_SEND_ENABLED !== 'true' || process.env.BILLING_EMAIL_SEND_ENABLED !== 'true')) return new Response(null, {status: 204});
   const {secret, origin} = settings();
   const response = await fetch(`${origin}/.netlify/functions/radar-job-background`, {
     method: 'POST', headers: {authorization: `Bearer ${secret}`, 'content-type': 'application/json'},

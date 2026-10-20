@@ -23,7 +23,7 @@ export async function checkoutPaymentIds(checkoutId:string,customer?:string){
  if(!ids.length&&customer){const fallback=await asaas(`/payments?customer=${encodeURIComponent(customer)}&limit=100`);ids=matches(fallback.data||[]);}
  return [...new Set(ids)];
 }
-export async function reconcilePayment(paymentId:string,checkoutId?:string){const payment=await asaas(`/payments/${encodeURIComponent(paymentId)}`);
+export async function reconcilePayment(paymentId:string,checkoutId?:string,eventKind?:string){const payment=await asaas(`/payments/${encodeURIComponent(paymentId)}`);
  if(checkoutId&&payment.checkoutSession!==checkoutId)throw new Error('Cobrança não pertence ao checkout');
  const db=adminDb();let order=null;
  if(checkoutId||payment.checkoutSession)order=checked(await db.from('orders').select('*').eq('checkout_id',checkoutId||payment.checkoutSession).maybeSingle());
@@ -34,5 +34,6 @@ export async function reconcilePayment(paymentId:string,checkoutId?:string){cons
  const due=new Date(`${payment.dueDate}T12:00:00Z`);if(!Number.isFinite(due.getTime()))throw new Error('Data de pagamento inválida');const day=due.getUTCDate();due.setUTCDate(1);due.setUTCMonth(due.getUTCMonth()+1);const last=new Date(Date.UTC(due.getUTCFullYear(),due.getUTCMonth()+1,0)).getUTCDate();due.setUTCDate(Math.min(day,last));
  checked(await db.rpc('confirm_payment',{order_key:order.id,payment_key:payment.id,subscription_key:payment.subscription||null,paid_until:due.toISOString()}));
  }else if(['REFUNDED','REFUND_REQUESTED','CHARGEBACK_REQUESTED','CHARGEBACK_DISPUTE'].includes(payment.status)){checked(await db.rpc('revoke_payment',{payment_key:payment.id}));}
+ if(payment.status==='OVERDUE'||(eventKind==='PAYMENT_CREDIT_CARD_CAPTURE_REFUSED'&&payment.status==='PENDING')){checked(await db.rpc('queue_billing_failure',{order_key:order.id,payment_key:payment.id}));}
  return true;
 }

@@ -11,3 +11,16 @@ test('conciliação de recorrência usa fallback limitado ao cliente e recusa co
  await assert.rejects(mod.reconcilePayment('pay_wrong','checkout_1'),/não pertence/);
  }finally{globalThis.fetch=priorFetch;await rm(dir,{recursive:true,force:true});}
 });
+
+test('falha financeira é enfileirada pela cobrança verificada e ignorada após pagamento confirmado',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'billing-failure-'));const oldFetch=globalThis.fetch;const state=globalThis as any;
+ try{
+  state.failureRpcs=[];
+  const file=join(dir,'billing.cjs');await build({entryPoints:[new URL('../lib/billing.ts',import.meta.url).pathname],outfile:file,bundle:true,platform:'node',format:'cjs',plugins:[{name:'services',setup(b){b.onResolve({filter:/^(server-only|\.\/db)$/},a=>({path:a.path,namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},a=>({loader:'js',contents:a.path==='server-only'?'':`export const checked=r=>r.data;export function adminDb(){return {from(){return {select(){return this},eq(){return this},async maybeSingle(){return {data:{id:'order',value_cents:990}}}}},async rpc(name,args){globalThis.failureRpcs.push({name,args});return {data:null}}}}`}));}}]});
+  const {reconcilePayment}=createRequire(import.meta.url)(file);let status='OVERDUE';
+  globalThis.fetch=(async()=>Response.json({id:'pay_pending',checkoutSession:'checkout',status,value:9.90,dueDate:'2026-10-20'})) as typeof fetch;
+  assert.equal(await reconcilePayment('pay_pending'),true);assert.equal(state.failureRpcs.at(-1).name,'queue_billing_failure');
+  status='PENDING';state.failureRpcs=[];await reconcilePayment('pay_pending',undefined,'PAYMENT_CREDIT_CARD_CAPTURE_REFUSED');assert.equal(state.failureRpcs.at(-1).name,'queue_billing_failure');
+  status='CONFIRMED';state.failureRpcs=[];await reconcilePayment('pay_pending',undefined,'PAYMENT_CREDIT_CARD_CAPTURE_REFUSED');assert.deepEqual(state.failureRpcs.map((r:any)=>r.name),['confirm_payment']);
+ }finally{globalThis.fetch=oldFetch;delete state.failureRpcs;await rm(dir,{recursive:true,force:true});}
+});
