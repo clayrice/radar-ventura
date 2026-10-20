@@ -1,3 +1,4 @@
+import {assertEmailAllowed,EmailSuppressedError} from './email-suppression';
 import 'server-only';
 import {randomUUID,createHash} from 'node:crypto';
 import {adminDb,checked,isDemo} from './db';
@@ -25,7 +26,7 @@ export async function sendCancellationReceipt(row:{email:string;nonce:string}){
  return sendConfirmationPayload(row.email,{from:process.env.EMAIL_FROM,to:[row.email],...cancellationEmail(process.env.APP_URL!)},`ventura-daily-cancel/${row.nonce}`);
 }
 async function sendPayload(payload:Record<string,unknown>,key:string){
- dailyConfig();
+ dailyConfig();await assertEmailAllowed(payload);
  const response=await fetch('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(10000),headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify(payload)});
  const receipt=await response.json();if(!response.ok||!receipt.id)throw Error('Daily email provider failure');return receipt.id as string;
 }
@@ -101,7 +102,7 @@ export async function runDailyMail(){
  if(!delivery){const unsubscribe=dailyLink('unsubscribe',subscriber);const payload={from:process.env.EMAIL_FROM,to:[subscriber.email],...dailyEmail(date,articles,partners[0]||null,process.env.APP_URL!,unsubscribe),headers:{'List-Unsubscribe':`<${unsubscribe}>`,'List-Unsubscribe-Post':'List-Unsubscribe=One-Click'}};delivery=checked(await db.from('daily_deliveries').insert({subscriber_id:subscriber.id,radar_date:date,payload}).select('*').single());}
  const current=checked(await db.from('daily_subscribers').select('status').eq('id',subscriber.id).single());
  if(current?.status!=='active'){checked(await db.from('daily_deliveries').update({status:'cancelled'}).eq('subscriber_id',subscriber.id).eq('radar_date',date));continue;}
- try{const id=await sendDailyPayload(delivery.payload,`ventura-daily/${date}/${subscriber.id}`);checked(await db.from('daily_deliveries').update({status:'sent',provider_id:id}).eq('subscriber_id',subscriber.id).eq('radar_date',date));sent++;}catch{failures++;/* Preserve frozen payload and retry only inside the provider idempotency window. */}
+ try{const id=await sendDailyPayload(delivery.payload,`ventura-daily/${date}/${subscriber.id}`);checked(await db.from('daily_deliveries').update({status:'sent',provider_id:id}).eq('subscriber_id',subscriber.id).eq('radar_date',date));sent++;}catch(error){if(error instanceof EmailSuppressedError){checked(await db.from('daily_deliveries').update({status:'cancelled'}).eq('subscriber_id',subscriber.id).eq('radar_date',date));continue;}failures++;/* Preserve frozen payload and retry only inside the provider idempotency window. */}
  }
  if(rows.length<100)break;
  }

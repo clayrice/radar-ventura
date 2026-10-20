@@ -18,7 +18,7 @@ test('daily delivery: gates, confirmed recipients, frozen retry, duplicates, can
  }}]});
  const mail=createRequire(import.meta.url)(bundle);
  const articles=Array.from({length:3},(_,i)=>({id:String(i),title:'Story '+i,summary:'Summary',radar_date:'2026-10-09',status:'published',source_name:'Jornal',source_url:'https://source.example/story',published_at:'2026-10-09',category:'Business',sectors:[]}));
- const tables:Record<string,any[]>={articles,partners:[],daily_deliveries:[],daily_subscribers:[{id:'a',nonce:'na',email:'a@example.com',status:'active'},{id:'pending',nonce:'np',email:'p@example.com',status:'pending'},{id:'cancelled',nonce:'nc',email:'c@example.com',status:'unsubscribed'}]};
+ const tables:Record<string,any[]>={email_suppressions:[],articles,partners:[],daily_deliveries:[],daily_subscribers:[{id:'a',nonce:'na',email:'a@example.com',status:'active'},{id:'pending',nonce:'np',email:'p@example.com',status:'pending'},{id:'cancelled',nonce:'nc',email:'c@example.com',status:'unsubscribed'}]};
  let locked=false,requests=0,fail=false;const payloads:string[]=[];const keys:string[]=[];
  const db={rpc:async(name:string)=>({data:name==='acquire_job'?!locked:true,error:null}),from(table:string){let predicates:((r:any)=>boolean)[]=[],mutation:string|null=null,payload:any,single=false,start=0,end=Infinity;
  const q:any={select(){return q},eq(k:string,v:any){predicates.push(r=>r[k]===v);return q},order(){return q},or(){return q},range(a:number,b:number){start=a;end=b;return q},limit(n:number){end=n-1;return q},maybeSingle(){single=true;return q},single(){single=true;return q},insert(p:any){mutation='insert';payload=p;return q},update(p:any){mutation='update';payload=p;return q},then(resolve:any,reject:any){
@@ -44,6 +44,7 @@ test('daily delivery: gates, confirmed recipients, frozen retry, duplicates, can
  tables.articles[0].title='Changed after first attempt';fail=false;assert.equal((await mail.runDailyMail()).sent,1);assert.equal(payloads[0],payloads[1]);assert.equal(JSON.parse(payloads[1]).to[0],'a@example.com');
  assert.equal((await mail.runDailyMail()).sent,0);assert.equal(requests,2);
  tables.daily_deliveries[0].status='sending';tables.daily_deliveries[0].started_at=new Date(Date.now()-24*3600000).toISOString();assert.equal((await mail.runDailyMail()).review,1);assert.equal(requests,2);
+ tables.email_suppressions.push({fingerprint:(await import('../lib/email-feedback-core')).emailFingerprint('a@example.com')});tables.daily_deliveries[0].status='sending';tables.daily_deliveries[0].started_at=new Date().toISOString();assert.equal((await mail.runDailyMail()).sent,0);assert.equal(tables.daily_deliveries[0].status,'cancelled');assert.equal(requests,2);
  tables.daily_subscribers[0].status='unsubscribed';assert.equal((await mail.runDailyMail()).sent,0);assert.equal(requests,2);
 
  // Manual validation stays restricted even while the production gates are closed.
