@@ -68,5 +68,10 @@ test('PostgreSQL: isolamento, pagamentos, cotas e idempotência',async()=>{
  assert.equal((await db.query(`select * from billing_mail where order_id='${weeklyOrder}' and kind='cancelled'`)).rows.length,1);
  assert.deepEqual((await db.query(`select expires_at from subscriptions where user_id='${u2}'`)).rows[0],expiryBefore);
  await db.exec('set role authenticated;');await assert.rejects(db.exec('select * from billing_mail'));await assert.rejects(db.exec(`select queue_billing_failure('${weeklyOrder}','forged')`));await db.exec('reset role;set role anon;');await assert.rejects(db.exec('select * from billing_mail'));await db.exec('reset role;');
+
+ const snapshot=(await db.query<{snapshot:any}>('select operations_snapshot() as snapshot')).rows[0].snapshot;
+ assert.ok(snapshot.weekly_active>=1);assert.ok(snapshot.financial_queued>=4);assert.ok(Array.isArray(snapshot.runs));
+ const publicSnapshot=JSON.stringify(snapshot);for(const key of ['user_id','email','payload','provider_id','subscription_id','last_error'])assert.ok(!publicSnapshot.includes('"'+key+'"'));
+ await db.exec('set role authenticated;');await assert.rejects(db.exec('select operations_snapshot()'));await db.exec('reset role;set role anon;');await assert.rejects(db.exec('select operations_snapshot()'));await db.exec('reset role;');
  await db.close();
 });
