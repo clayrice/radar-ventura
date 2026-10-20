@@ -73,5 +73,15 @@ test('PostgreSQL: isolamento, pagamentos, cotas e idempotência',async()=>{
  assert.ok(snapshot.weekly_active>=1);assert.ok(snapshot.financial_queued>=4);assert.ok(Array.isArray(snapshot.runs));
  const publicSnapshot=JSON.stringify(snapshot);for(const key of ['user_id','email','payload','provider_id','subscription_id','last_error'])assert.ok(!publicSnapshot.includes('"'+key+'"'));
  await db.exec('set role authenticated;');await assert.rejects(db.exec('select operations_snapshot()'));await db.exec('reset role;set role anon;');await assert.rejects(db.exec('select operations_snapshot()'));await db.exec('reset role;');
+
+ const bucket='a'.repeat(64);
+ for(let n=0;n<6;n++)assert.equal((await db.query<{ok:boolean}>('select reserve_daily_signup($1) as ok',[bucket])).rows[0].ok,true);
+ assert.equal((await db.query<{ok:boolean}>('select reserve_daily_signup($1) as ok',[bucket])).rows[0].ok,false);
+ await db.query("update daily_signup_limits set window_started_at=now()-interval '11 minutes' where bucket=$1",[bucket]);
+ assert.equal((await db.query<{ok:boolean}>('select reserve_daily_signup($1) as ok',[bucket])).rows[0].ok,true);
+ await db.query('update daily_signup_limits set day_attempts=30 where bucket=$1',[bucket]);assert.equal((await db.query<{ok:boolean}>('select reserve_daily_signup($1) as ok',[bucket])).rows[0].ok,false);
+ assert.equal((await db.query<{ok:boolean}>("select reserve_daily_signup('raw-ip') as ok")).rows[0].ok,false);
+ await db.query("insert into daily_signup_limits(bucket,expires_at) values($1,now()-interval '1 minute')",['b'.repeat(64)]);await db.query('select reserve_daily_signup($1)',['c'.repeat(64)]);assert.equal((await db.query('select * from daily_signup_limits where bucket=$1',['b'.repeat(64)])).rows.length,0);
+ await db.exec('set role anon;');await assert.rejects(db.exec('select * from daily_signup_limits'));await assert.rejects(db.query('select reserve_daily_signup($1)',[bucket]));await db.exec('reset role;');
  await db.close();
 });
