@@ -54,5 +54,19 @@ test('PostgreSQL: isolamento, pagamentos, cotas e idempotência',async()=>{
  assert.equal((await db.query(`select * from editions where user_id='${u2}' and week_start='2026-10-12'`)).rows.length,1);
  await db.exec(`update editions set status='available' where user_id='${u2}' and week_start='2026-10-12';update subscriptions set expires_at=now()-interval '1 day' where user_id='${u2}';select enqueue_editions('2026-10-19');`);
  assert.equal((await db.query(`select * from editions where user_id='${u2}' and week_start='2026-10-19'`)).rows.length,0);
+
+ // Financial notices are atomic with payment/access and private to the service.
+ const weeklyOrder=(await db.query<{id:string}>(`insert into orders(user_id,product,value_cents) values('${u2}','weekly',990) returning id`)).rows[0].id;
+ await db.exec(`select confirm_payment('${weeklyOrder}','pay_mail_1','sub_mail',now()+interval '1 month');select confirm_payment('${weeklyOrder}','pay_mail_1','sub_mail',now()+interval '1 month');`);
+ assert.equal((await db.query(`select * from billing_mail where order_id='${weeklyOrder}' and kind='activated'`)).rows.length,1);
+ await db.exec(`select confirm_payment('${weeklyOrder}','pay_mail_2','sub_mail',now()+interval '2 months');`);
+ assert.equal((await db.query(`select * from billing_mail where order_id='${weeklyOrder}' and kind='renewed'`)).rows.length,1);
+ await db.exec(`select queue_billing_failure('${weeklyOrder}','pay_failure');select queue_billing_failure('${weeklyOrder}','pay_failure');`);
+ assert.equal((await db.query(`select * from billing_mail where order_id='${weeklyOrder}' and kind='payment_failed'`)).rows.length,1);
+ const expiryBefore=(await db.query(`select expires_at from subscriptions where user_id='${u2}'`)).rows[0];
+ await db.exec(`update orders set renewal_status='cancelled' where id='${weeklyOrder}';update orders set renewal_status='cancelled' where id='${weeklyOrder}';`);
+ assert.equal((await db.query(`select * from billing_mail where order_id='${weeklyOrder}' and kind='cancelled'`)).rows.length,1);
+ assert.deepEqual((await db.query(`select expires_at from subscriptions where user_id='${u2}'`)).rows[0],expiryBefore);
+ await db.exec('set role authenticated;');await assert.rejects(db.exec('select * from billing_mail'));await assert.rejects(db.exec(`select queue_billing_failure('${weeklyOrder}','forged')`));await db.exec('reset role;set role anon;');await assert.rejects(db.exec('select * from billing_mail'));await db.exec('reset role;');
  await db.close();
 });

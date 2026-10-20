@@ -24,3 +24,7 @@
 
 [functions."radar-instagram"]
   schedule = "0 10 * * *"
+
+# Financial receipts have their own gate and never create charges.
+[functions."radar-billing-email"]
+  schedule = "30 11-23 * * *"

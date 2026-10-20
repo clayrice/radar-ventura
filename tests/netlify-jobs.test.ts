@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {dispatch, runBackground} from '../netlify/lib/jobs.mjs';
+import billingEmailSchedule from '../netlify/functions/radar-billing-email.mjs';
 import dailyEmailSchedule from '../netlify/functions/radar-daily-email.mjs';
 
 test('daily email schedule stays dormant until both delivery gates are enabled', async () => {
-  const keys=['EMAIL_SEND_ENABLED','DAILY_EMAIL_SEND_ENABLED','DEMO_MODE','CRON_SECRET','URL'] as const;
+  const keys=['EMAIL_SEND_ENABLED','DAILY_EMAIL_SEND_ENABLED','DEMO_MODE','BILLING_EMAIL_SEND_ENABLED','CRON_SECRET','URL'] as const;
   const before=Object.fromEntries(keys.map(key=>[key,process.env[key]]));
   const originalFetch=globalThis.fetch;
   const requests: string[]=[];
@@ -16,6 +17,7 @@ test('daily email schedule stays dormant until both delivery gates are enabled',
       process.env.EMAIL_SEND_ENABLED=email;process.env.DAILY_EMAIL_SEND_ENABLED=daily;process.env.DEMO_MODE=demo;
       assert.equal((await dailyEmailSchedule()).status,204);
     }
+    process.env.BILLING_EMAIL_SEND_ENABLED='false';assert.equal((await billingEmailSchedule()).status,204);
     assert.equal(requests.length,0);
     process.env.EMAIL_SEND_ENABLED='true';process.env.DAILY_EMAIL_SEND_ENABLED='true';process.env.DEMO_MODE='false';
     assert.equal((await dailyEmailSchedule()).status,204);
@@ -25,6 +27,9 @@ test('daily email schedule stays dormant until both delivery gates are enabled',
       method:'POST',headers:{authorization:`Bearer ${process.env.CRON_SECRET}`,'content-type':'application/json'},body:JSON.stringify({job:'daily-email'}),
     }));
     assert.equal(requests.at(-1),'https://radar-test.netlify.app/api/jobs/daily-email');
+    process.env.BILLING_EMAIL_SEND_ENABLED='true';globalThis.fetch=(async(url)=>{requests.push(String(url));return new Response(null,{status:String(url).includes('/.netlify/')?202:200});}) as typeof fetch;
+    assert.equal((await billingEmailSchedule()).status,204);await runBackground(new Request('https://radar-test.netlify.app/.netlify/functions/radar-job-background',{method:'POST',headers:{authorization:`Bearer ${process.env.CRON_SECRET}`,'content-type':'application/json'},body:JSON.stringify({job:'billing-email'})}));
+    assert.equal(requests.at(-1),'https://radar-test.netlify.app/api/jobs/billing-email');
   } finally {
     globalThis.fetch=originalFetch;
     for(const key of keys){if(before[key]===undefined)delete process.env[key];else process.env[key]=before[key];}
