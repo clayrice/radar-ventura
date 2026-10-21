@@ -83,5 +83,15 @@ test('PostgreSQL: isolamento, pagamentos, cotas e idempotência',async()=>{
  assert.equal((await db.query<{ok:boolean}>("select reserve_daily_signup('raw-ip') as ok")).rows[0].ok,false);
  await db.query("insert into daily_signup_limits(bucket,expires_at) values($1,now()-interval '1 minute')",['b'.repeat(64)]);await db.query('select reserve_daily_signup($1)',['c'.repeat(64)]);assert.equal((await db.query('select * from daily_signup_limits where bucket=$1',['b'.repeat(64)])).rows.length,0);
  await db.exec('set role anon;');await assert.rejects(db.exec('select * from daily_signup_limits'));await assert.rejects(db.query('select reserve_daily_signup($1)',[bucket]));await db.exec('reset role;');
+ const fingerprint='d'.repeat(64);
+ await db.query('select record_email_suppression($1,$2,$3,$4)',[fingerprint,'hard_bounce','event1','provider1']);
+ await db.query('select record_email_suppression($1,$2,$3,$4)',[fingerprint,'hard_bounce','event1','provider1']);
+ assert.equal((await db.query('select * from email_suppressions')).rows.length,1);
+ await db.query('select record_email_suppression($1,$2,$3,$4)',[fingerprint,'complaint','event2','provider1']);
+ await db.query('select record_email_suppression($1,$2,$3,$4)',[fingerprint,'hard_bounce','event3','provider1']);
+ assert.equal((await db.query<{reason:string}>('select reason from email_suppressions')).rows[0].reason,'complaint');
+ assert.equal((await db.query<{s:any}>('select operations_snapshot() as s')).rows[0].s.email_suppressed,1);
+ await assert.rejects(db.query('select record_email_suppression($1,$2,$3,$4)',['raw-email@example.com','hard_bounce','e','p']));
+ for(const role of ['anon','authenticated']){await db.exec('set role '+role);await assert.rejects(db.exec('select * from email_suppressions'));await assert.rejects(db.query('select record_email_suppression($1,$2,$3,$4)',[fingerprint,'complaint','forged','provider1']));await db.exec('reset role');}
  await db.close();
 });

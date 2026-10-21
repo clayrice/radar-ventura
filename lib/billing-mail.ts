@@ -1,3 +1,4 @@
+import {assertEmailAllowed,EmailSuppressedError} from './email-suppression';
 import 'server-only';
 import {randomUUID} from 'node:crypto';
 import {adminDb,checked,isDemo} from './db';
@@ -32,10 +33,11 @@ export async function runBillingMail(deadline=Date.now()+30000){
     payload={from:process.env.EMAIL_FROM,to:[data.user.email],...billingEmail(row.kind as BillingMailKind,process.env.APP_URL!,sub?.expires_at||null,order.renewal_status==='active')};
     checked(await db.from('billing_mail').update({status:'sending',payload,started_at:new Date().toISOString()}).eq('id',row.id));
    }
+   await assertEmailAllowed(payload);
    const response=await fetch('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(8000),headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':`ventura-billing/${row.id}`},body:JSON.stringify(payload)});
    const receipt=await response.json();if(!response.ok||typeof receipt.id!=='string')throw Error('Financial provider failure');
    checked(await db.from('billing_mail').update({status:'sent',sent_at:new Date().toISOString(),provider_id:receipt.id,last_error:null}).eq('id',row.id));sent++;
-  }catch{failures++;checked(await db.from('billing_mail').update({last_error:'Financial delivery pending; retry or reconcile provider'}).eq('id',row.id));}
+  }catch(error){if(error instanceof EmailSuppressedError){checked(await db.from('billing_mail').update({status:'review',last_error:'Email blocked after permanent bounce or spam complaint'}).eq('id',row.id));review++;continue;}failures++;checked(await db.from('billing_mail').update({last_error:'Financial delivery pending; retry or reconcile provider'}).eq('id',row.id));}
  }
  return {status:'processed',sent,review,failures,cancelled};
  }finally{checked(await db.rpc('release_job',{lock_name:'billing-mail',lock_owner:owner}));}

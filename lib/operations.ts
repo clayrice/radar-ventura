@@ -2,7 +2,7 @@ import 'server-only';
 import {notFound} from 'next/navigation';
 import {adminDb,checked,isDemo,sessionDb} from './db';
 import {operationsAllowed} from './operations-access';
-export type OperationsSnapshot={day:string;generated_at:string;articles_today:number;photos_today:number;posts_today:number;daily_status:string|null;daily_active:number;daily_pending:number;daily_sent_today:number;daily_review:number;weekly_active:number;weekly_queued:number;weekly_ready:number;weekly_review:number;weekly_sent:number;billing_review:number;billing_events_pending:number;financial_queued:number;financial_review:number;financial_sent:number;partners_active:number;personalization_calls:number;news_calls:number;daily_history:{radar_date:string;status:string;attempts:number;updated_at:string}[];runs:{job:string;status:string;started_at:string;finished_at:string|null}[]};
+export type OperationsSnapshot={email_suppressed:number;day:string;generated_at:string;articles_today:number;photos_today:number;posts_today:number;daily_status:string|null;daily_active:number;daily_pending:number;daily_sent_today:number;daily_review:number;weekly_active:number;weekly_queued:number;weekly_ready:number;weekly_review:number;weekly_sent:number;billing_review:number;billing_events_pending:number;financial_queued:number;financial_review:number;financial_sent:number;partners_active:number;personalization_calls:number;news_calls:number;daily_history:{radar_date:string;status:string;attempts:number;updated_at:string}[];runs:{job:string;status:string;started_at:string;finished_at:string|null}[]};
 export async function loadOperations(){
  if(isDemo())notFound();
  const session=await sessionDb();const {data:{user},error}=await session.auth.getUser();
@@ -12,6 +12,7 @@ export async function loadOperations(){
 }
 export function operationAlerts(s:OperationsSnapshot){
  const alerts:{title:string;detail:string}[]=[];
+ if(s.email_suppressed>0)alerts.push({title:'Endereços com envio bloqueado',detail:'Há devoluções permanentes ou reclamações de spam. Esses endereços não receberão novos e-mails enviados pela aplicação; o acesso pelo site é preservado.'});
  if(s.weekly_review+s.daily_review+s.financial_review>0)alerts.push({title:'Entregas precisam de conferência',detail:'Há mensagens ou edições em revisão. Confira o resultado no provedor antes de qualquer reenvio.'});
  if(s.billing_review+s.billing_events_pending>0)alerts.push({title:'Pagamentos precisam de conciliação',detail:'Há pedidos antigos pendentes ou eventos financeiros ainda não processados. Isso não confirma uma cobrança em atraso.'});
  if(s.personalization_calls>=10)alerts.push({title:'Cota de personalização atingida',detail:'Novas gerações precisam aguardar o próximo ciclo diário. Edições já prontas podem continuar sendo entregues.'});
