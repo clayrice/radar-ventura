@@ -23,7 +23,7 @@ O painel restrito mostra somente o total de endereços bloqueados e um aviso. �
 
 1. Aplicar `028_email_suppressions.sql` antes da publicação, pois os remetentes passam a consultar a tabela.
 2. Publicar o código e confirmar que a rota sem assinatura responde 401 depois de configurada (503 enquanto não configurada).
-3. No Resend, criar um webhook do Radar com URL `https://radar-ventura.netlify.app/api/email/webhook`, somente com `email.bounced` e `email.complained`.
+3. No Resend, criar um webhook do Radar com a URL formada por APP_URL e o caminho `/api/email/webhook`, somente com `email.bounced` e `email.complained`.
 4. Salvar o segredo de assinatura desse endpoint como RESEND_WEBHOOK_SECRET apenas na produção da Netlify. Não usar a chave da API como segredo de assinatura. Publicar novamente para carregar a variável.
 5. Conferir a conexão sem inserir endereços fictícios na produção nem executar disparos gerais. Eventos reais anteriores à criação não são importados automaticamente; a conferência histórica e um eventual replay precisam ser tratados separadamente no provedor.
 
